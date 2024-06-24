@@ -1,1 +1,182 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Excel to Firestore</title>
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid black;
+      padding: 8px;
+      text-align: left;
+    }
+    #loadingSessionBar {
+      background-color: #4CAF50;
+      width: 0%;
+      height: 30px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Upload Excel File</h2>
+  <form id="uploadForm">
+    <input type="file" accept=".xls,.xlsx" id="excelFile" required>
+    <button type="submit">Upload</button>
+  </form>
+
+  <h2>Uploaded Data</h2>
+  <table id="dataTable">
+    <thead>
+    <tr id="tableHeaders">
+         <th>STORE</th>
+         <th>STORE NAME</th>
+         <th>SKU</th>
+         <th>UPC</th>
+         <th>SKU TYPE</th>
+         <th>ITEM DESCRIPTION</th>
+         <th>STOCK CODE</th>
+         <th>VENDOR NO.</th>
+         <th>VENDOR NAME</th>
+         <th>DEPT</th>
+         <th>DEPT NAME</th>
+         <th>SUBDEPT</th>
+         <th>SUBDEPT NAME</th>
+         <th>CLASS</th>
+         <th>CLASS NAME</th>
+         <th>SUBCLASS</th>
+         <th>SUBCLASS NAME</th>
+         <th>ITEM_STATUS</th>
+         <th>BUY_U/M</th>
+         <th>SELLING U/M</th>
+         <th>UNIT COST</th>
+         <th>AVERAGE_COST</th>
+         <th>RETAIL PRICE</th>
+         <th>ON HAND</th>
+       </tr>
+    </thead>
+    <tbody id="tableBody">
+      <!-- Data rows will be inserted here -->
+    </tbody>
+  </table>
+
+  <div id="loadingSessionBar"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
+  <script>
+    // Initialize Firebase (replace with your Firebase project configuration)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCaBZO8EtlFdFbETi0VweKzFvG_sfc3hEk",
+      authDomain: "sample-e6d4f.firebaseapp.com",
+      databaseURL: "https://sample-e6d4f-default-rtdb.firebaseio.com",
+      projectId: "sample-e6d4f",
+      storageBucket: "sample-e6d4f.appspot.com",
+      messagingSenderId: "1082054472873",
+      appId: "1:1082054472873:web:1a9a8daca708b247bb65b8",
+      measurementId: "G-F8F7V5Q9MV"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const form = document.getElementById('uploadForm');
+    form.addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const file = document.getElementById('excelFile').files[0];
+      if (!file) {
+        alert('Please select a file.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function(event) {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const excelData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        // Assuming the first row of Excel contains column headers
+        const headers = excelData[0];
+        const firestoreData = [];
+
+        // Prepare HTML for table rows and initialize progress bar
+        let tableRowsHTML = '';
+        const progressBar = document.getElementById('loadingSessionBar');
+        progressBar.style.width = '0%'; // Initially set to 0%
+
+        // Start from the second row (index 1) to skip headers
+        for (let i = 1; i < excelData.length; i++) {
+          const row = excelData[i];
+          const rowData = {};
+          for (let j = 0; j < headers.length; j++) {
+            rowData[headers[j]] = row[j];
+          }
+          firestoreData.push(rowData);
+
+          // Construct table row HTML (optional, for visualization)
+          tableRowsHTML += '<tr>';
+          for (let j = 0; j < headers.length; j++) {
+            tableRowsHTML += `<td>${rowData[headers[j]]}</td>`;
+          }
+          tableRowsHTML += '</tr>';
+
+          // Update progress bar
+          const progress = ((i + 1) / excelData.length) * 100;
+          progressBar.style.width = `${progress}%`;
+        }
+
+        // Update table body with rows (optional, for visualization)
+        const tableBody = document.getElementById('tableBody');
+        tableBody.innerHTML = tableRowsHTML;
+
+        // Split firestoreData into batches (adjust batchSize as needed)
+        const batchSize = 100; // Number of documents per batch
+        const batches = [];
+        for (let i = 0; i < firestoreData.length; i += batchSize) {
+          const batch = firestoreData.slice(i, i + batchSize);
+          batches.push(batch);
+        }
+
+        // Function to upload batches concurrently with progress tracking
+        const uploadBatches = async () => {
+          const totalBatches = batches.length;
+          for (let i = 0; i < totalBatches; i++) {
+            const batch = db.batch();
+            batches[i].forEach(data => {
+              const docRef = db.collection('yourCollection').doc(); // Replace with your Firestore collection
+              batch.set(docRef, data);
+            });
+
+            // Perform batch commit asynchronously
+            await batch.commit().then(() => {
+              const progress = ((i + 1) / totalBatches) * 100;
+              progressBar.style.width = `${progress}%`;
+            }).catch((error) => {
+              console.error('Error saving batch:', error);
+              alert('Failed to save data to Firestore.');
+            });
+          }
+
+          // All batches uploaded successfully
+          alert('Data successfully saved to Firestore.');
+          progressBar.style.width = '0%'; // Reset progress bar
+        };
+
+        // Start uploading batches
+        uploadBatches();
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+  </script>
+</body>
+</html>
