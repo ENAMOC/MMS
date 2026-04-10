@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Homedecor | Dataset  (Auto-Save)</title>
+    <title>Homedecor|Dataset</title>
     <style>
         * {
             box-sizing: border-box;
@@ -23,7 +23,6 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             width: 100%;
         }
-        /* Header with last updated info */
         .header-info {
             display: flex;
             justify-content: space-between;
@@ -179,7 +178,6 @@
         .error { background: #ffe6e5; color: #bc3f2e; border-left: 5px solid #c7452c; }
         .info { background: #e3f0fa; color: #1e6a9f; border-left: 5px solid #2c6e9e; }
 
-        /* MODAL STYLES */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -240,7 +238,6 @@
             gap: 6px;
         }
 
-        /* FILTER PANEL */
         .filter-panel-container {
             background: white;
             margin-bottom: 20px;
@@ -380,7 +377,6 @@
             padding: 0 4px;
             font-size: 14px;
         }
-        /* COLUMN MANAGER */
         .column-manager {
             background: white;
             padding: 10px 20px;
@@ -431,13 +427,13 @@
             padding: 4px 14px;
             font-size: 11px;
         }
-        /* TABLE */
         .excel-table-container {
             background: white;
             overflow: hidden;
             box-shadow: 0 8px 20px rgba(0,0,0,0.08);
             width: 100%;
             border-radius: 0;
+            transition: opacity 0.2s ease;
         }
         .table-wrapper {
             overflow-x: auto;
@@ -515,19 +511,68 @@
             gap: 6px;
             margin-left: 12px;
         }
+        .global-spinner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(3px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            transition: opacity 0.2s;
+        }
+        .spinner-card {
+            background: white;
+            border-radius: 32px;
+            padding: 28px 38px;
+            text-align: center;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+        .spinner {
+            width: 52px;
+            height: 52px;
+            border: 5px solid #e9edf2;
+            border-top: 5px solid #2c6e9e;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .spinner-text {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1e466e;
+            letter-spacing: 0.3px;
+        }
         @media (max-width: 768px) {
             .filter-card { min-width: 140px; }
             .stat-value { font-size: 24px; }
             .data-table th, .data-table td { padding: 8px 6px; font-size: 11px; }
             .last-updated-section { font-size: 10px; padding: 4px 12px; }
+            .spinner-card { padding: 20px 28px; }
         }
     </style>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <!-- SheetJS for Excel parsing -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div class="upload-container">
     <div class="header-info">
         <div class="title-section">
-            <h2>📊 Homedecor Dataset <span class="single-dataset-badge">💾 Filters & Column visibility auto-save</span></h2>
+            <h2>📊 Homedecor|Dataset <span class="single-dataset-badge">💾 Filters & Column visibility auto-save</span></h2>
         </div>
         <div class="last-updated-section">
             <span class="last-updated-label">🕒 Last Updated:</span>
@@ -542,7 +587,6 @@
     </div>
     <div id="adminBadge" style="margin-top: 8px;"></div>
     
-    <!-- Admin Protected Section (Upload, Refresh, Delete) -->
     <div id="adminSection" class="admin-protected">
         <div class="stats-grid">
             <div class="stat-card"><div class="stat-value" id="totalRows">0</div><div class="stat-label">Total Rows in DB</div></div>
@@ -567,7 +611,7 @@
 <div id="filterPanelArea" style="display: none;">
     <div class="filter-panel-container" id="mainFilterContainer">
         <div class="filter-header">
-            <h3>🔍 Column Filters <span class="hint-badge"></span></h3>
+            <h3>🔍 Column Filters <span class="hint-badge">✨ Hint Match: "flower" matches "flowers", "flowering"</span></h3>
             <div class="filter-actions">
                 <button id="applyAllFiltersBtn">Apply Filters</button>
                 <button id="resetAllFiltersBtn" class="clear-all-btn">Reset All Filters</button>
@@ -600,10 +644,6 @@
     </div>
 </div>
 
-<!-- External Firebase + SheetJS + App Script -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
