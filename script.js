@@ -1,4 +1,4 @@
-// ==================== FIREBASE CONFIGURATION ====================
+// Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyBgQ-NRH_UFKwEt0PybJ3y2zKGvRSqvLoU",
     authDomain: "portfolio-70f03.firebaseapp.com",
@@ -9,7 +9,6 @@ const firebaseConfig = {
     appId: "1:815368927704:web:119b288294c5b26d2e1aad"
 };
 
-// Initialize Firebase
 let database;
 try {
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
@@ -17,7 +16,7 @@ try {
     console.log("✅ Firebase ready");
 } catch(e) { console.warn(e); }
 
-// ==================== DOM ELEMENTS ====================
+// DOM elements
 const csvFileInput = document.getElementById('csvFile');
 const uploadBtn = document.getElementById('uploadBtn');
 const loadBtn = document.getElementById('loadBtn');
@@ -45,10 +44,7 @@ const adminLoginBtn = document.getElementById('adminLoginBtn');
 const adminBadge = document.getElementById('adminBadge');
 const lastUpdatedTimeSpan = document.getElementById('lastUpdatedTime');
 
-// ==================== GLOBAL STATE ====================
-let isAdminLoggedIn = false;
-let currentAdminUser = null;
-let currentMetadata = null;
+// Data state variables
 let rawDataset = [];
 let currentHeaders = [];
 let filteredSortedData = [];
@@ -58,8 +54,13 @@ let columnSearchTexts = {};
 let columnSelectedValues = {};
 let sortConfig = { column: null, direction: 'asc' };
 let columnVisibility = {};
-let activeDropdown = null;
 
+// Admin state
+let isAdminLoggedIn = false;
+let currentAdminUser = null;
+let currentMetadata = null;
+
+// Storage keys
 const STORAGE_KEYS = {
     FILTER_TEXTS: 'csv_persist_filter_texts',
     FILTER_SELECTED: 'csv_persist_filter_selected',
@@ -68,7 +69,10 @@ const STORAGE_KEYS = {
     COLUMN_VISIBILITY: 'csv_persist_column_visibility'
 };
 
-// ==================== UTILITY FUNCTIONS ====================
+let activeDropdown = null;
+let activeSpinner = null;
+
+// ========== Helper Functions ==========
 function escapeHtml(str) {
     if(!str) return '';
     return String(str).replace(/[&<>]/g, function(m){
@@ -79,34 +83,45 @@ function escapeHtml(str) {
     });
 }
 
+function showStatus(msg, type) {
+    if (!statusDiv) return;
+    statusDiv.innerHTML = msg;
+    statusDiv.className = `status ${type}`;
+    setTimeout(() => {
+        if(statusDiv.innerHTML === msg) {
+            statusDiv.innerHTML = '';
+            statusDiv.className = 'status';
+        }
+    }, 4000);
+}
+
 function formatTimestamp(timestamp) {
     if (!timestamp) return '—';
     try {
         const date = new Date(timestamp);
-        return date.toLocaleString('en-US', { 
-            year: 'numeric', 
-            month: 'short', 
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
             day: 'numeric',
-            hour: '2-digit', 
-            minute: '2-digit', 
+            hour: '2-digit',
+            minute: '2-digit',
             second: '2-digit',
-            hour12: true 
+            hour12: true
         });
     } catch(e) {
         return String(timestamp);
     }
 }
 
-function showStatus(msg, type) { 
-    if (!statusDiv) return;
-    statusDiv.innerHTML = msg; 
-    statusDiv.className = `status ${type}`; 
-    setTimeout(() => { 
-        if(statusDiv.innerHTML === msg) { 
-            statusDiv.innerHTML = ''; 
-            statusDiv.className = 'status'; 
-        } 
-    }, 4000);
+function updateLastUpdatedDisplay(metadata) {
+    if (metadata && metadata.timestamp) {
+        lastUpdatedTimeSpan.innerHTML = `${formatTimestamp(metadata.timestamp)} <span style="font-size:10px; opacity:0.7;">(${metadata.fileName || 'CSV'})</span>`;
+        lastUpdatedTimeSpan.title = `Full timestamp: ${metadata.timestamp}`;
+    } else if (metadata && metadata.uploadDate) {
+        lastUpdatedTimeSpan.textContent = formatTimestamp(metadata.uploadDate);
+    } else {
+        lastUpdatedTimeSpan.textContent = '—';
+    }
 }
 
 function sanitizeFirebaseKey(key) {
@@ -123,18 +138,145 @@ function sanitizeRowObject(row) {
     return cleanRow;
 }
 
-function updateLastUpdatedDisplay(metadata) {
-    if (metadata && metadata.timestamp) {
-        lastUpdatedTimeSpan.innerHTML = `${formatTimestamp(metadata.timestamp)} <span style="font-size:10px; opacity:0.7;">(${metadata.fileName || 'CSV'})</span>`;
-        lastUpdatedTimeSpan.title = `Full timestamp: ${metadata.timestamp}`;
-    } else if (metadata && metadata.uploadDate) {
-        lastUpdatedTimeSpan.textContent = formatTimestamp(metadata.uploadDate);
-    } else {
-        lastUpdatedTimeSpan.textContent = '—';
+// ========== Loading Spinner ==========
+function showGlobalSpinner(message = 'Loading data...') {
+    if (activeSpinner) hideGlobalSpinner();
+    const overlay = document.createElement('div');
+    overlay.className = 'global-spinner-overlay';
+    overlay.id = 'dynamicSpinnerOverlay';
+    overlay.innerHTML = `
+        <div class="spinner-card">
+            <div class="spinner"></div>
+            <div class="spinner-text">${escapeHtml(message)}</div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    activeSpinner = overlay;
+}
+
+function hideGlobalSpinner() {
+    if (activeSpinner) {
+        activeSpinner.remove();
+        activeSpinner = null;
     }
 }
 
-// ==================== HINT MATCH & HIGHLIGHT ====================
+function withSpinner(promise, message = 'Processing...') {
+    showGlobalSpinner(message);
+    return promise.finally(() => hideGlobalSpinner());
+}
+
+// ========== Admin Functions ==========
+function checkExistingAdminSession() {
+    const savedSession = localStorage.getItem('csv_admin_session');
+    if (savedSession) {
+        try {
+            const session = JSON.parse(savedSession);
+            if (session.loggedIn && session.expiry > Date.now()) {
+                isAdminLoggedIn = true;
+                currentAdminUser = session.username;
+                adminSection.classList.add('visible');
+                adminBadge.innerHTML = `<span class="admin-logged-badge">✅ Admin: ${escapeHtml(session.username)} | <button id="logoutBtn" style="background:none; border:none; color:white; cursor:pointer; margin-left:6px;">🚪 Logout</button></span>`;
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
+                showStatus(`Welcome back, ${session.username}!`, "success");
+                if (rawDataset.length === 0 && database) loadLatestData();
+            } else {
+                localStorage.removeItem('csv_admin_session');
+            }
+        } catch(e) { localStorage.removeItem('csv_admin_session'); }
+    }
+}
+
+function logoutAdmin() {
+    localStorage.removeItem('csv_admin_session');
+    isAdminLoggedIn = false;
+    currentAdminUser = null;
+    adminSection.classList.remove('visible');
+    adminBadge.innerHTML = '';
+    showStatus("Logged out successfully", "info");
+}
+
+async function validateAdminWithDB(username, password) {
+    if (!database) throw new Error("Firebase not connected");
+    const adminRef = database.ref('adminUsers');
+    const snapshot = await adminRef.orderByChild('username').equalTo(username).once('value');
+    if (!snapshot.exists()) throw new Error("Admin account not found. Please contact administrator.");
+    let matchedUser = null;
+    snapshot.forEach(child => {
+        const user = child.val();
+        if (user.username === username) matchedUser = { id: child.key, ...user };
+    });
+    if (!matchedUser) throw new Error("Invalid credentials");
+    if (matchedUser.password !== password) throw new Error("Incorrect password");
+    return matchedUser;
+}
+
+function showAdminModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <h3>🔐 Admin Login</h3>
+            <input type="text" id="adminUsername" placeholder="Username" autocomplete="off">
+            <input type="password" id="adminPassword" placeholder="Password">
+            <div id="modalError" class="error-msg"></div>
+            <div class="modal-buttons">
+                <button id="modalLoginBtn">Login</button>
+                <button id="modalCancelBtn">Cancel</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    const usernameInput = modal.querySelector('#adminUsername');
+    const passwordInput = modal.querySelector('#adminPassword');
+    const loginBtn = modal.querySelector('#modalLoginBtn');
+    const cancelBtn = modal.querySelector('#modalCancelBtn');
+    const errorDiv = modal.querySelector('#modalError');
+    
+    const tryLogin = async () => {
+        const user = usernameInput.value.trim();
+        const pass = passwordInput.value;
+        if (!user || !pass) {
+            errorDiv.textContent = "Please enter username and password";
+            return;
+        }
+        loginBtn.disabled = true;
+        loginBtn.textContent = "Verifying...";
+        try {
+            const adminUser = await validateAdminWithDB(user, pass);
+            isAdminLoggedIn = true;
+            currentAdminUser = adminUser.username;
+            const session = {
+                loggedIn: true,
+                username: adminUser.username,
+                expiry: Date.now() + (60 * 60 * 1000)
+            };
+            localStorage.setItem('csv_admin_session', JSON.stringify(session));
+            adminSection.classList.add('visible');
+            adminBadge.innerHTML = `<span class="admin-logged-badge">✅ Admin: ${escapeHtml(adminUser.username)} | <button id="logoutBtn" style="background:none; border:none; color:white; cursor:pointer; margin-left:6px;">🚪 Logout</button></span>`;
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
+            showStatus(`Admin access granted. Welcome ${adminUser.username}!`, "success");
+            modal.remove();
+            if (rawDataset.length === 0 && database) loadLatestData();
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            console.error(err);
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.textContent = "Login";
+        }
+    };
+    
+    loginBtn.addEventListener('click', tryLogin);
+    cancelBtn.addEventListener('click', () => modal.remove());
+    usernameInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') tryLogin(); });
+    passwordInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') tryLogin(); });
+}
+
+// ========== Filter & Sort Functions ==========
 function isHintMatch(cellValue, searchRaw) {
     if (!searchRaw || searchRaw.trim() === "") return true;
     const cellStr = String(cellValue).toLowerCase().trim();
@@ -182,7 +324,6 @@ function highlightTextWithHint(cellText, searchTerm) {
     return escapeHtml(str);
 }
 
-// ==================== FILTERING & SORTING ====================
 function isAnyFilterActive() {
     for (let col of currentHeaders) {
         const hasText = columnSearchTexts[col] && columnSearchTexts[col].trim() !== "";
@@ -251,7 +392,7 @@ function applyFiltersAndSort() {
     return filteredSortedData;
 }
 
-// ==================== PERSISTENCE ====================
+// ========== Preferences Functions ==========
 function saveAllPreferences() {
     if (!currentHeaders.length) return;
     try {
@@ -321,7 +462,7 @@ function persistAndRefreshUI() {
     if (currentHeaders.length) renderColumnManager();
 }
 
-// ==================== COLUMN MANAGER ====================
+// ========== Render Functions ==========
 function renderColumnManager() {
     if (!currentHeaders.length) return;
     columnToggleGroup.innerHTML = '';
@@ -347,7 +488,6 @@ function resetColumnVisibility() {
     showStatus("All columns visible", "success");
 }
 
-// ==================== TABLE RENDERING ====================
 function renderTable() {
     if (!filteredSortedData.length) {
         tableBody.innerHTML = `<tr><td colspan="100" class="empty-placeholder">📭 No matching records. Adjust column filters.</td></tr>`;
@@ -365,7 +505,12 @@ function renderTable() {
         return;
     }
     let highlightTerm = "";
-    for (let col of currentHeaders) if (columnSearchTexts[col] && columnSearchTexts[col].trim()) { highlightTerm = columnSearchTexts[col]; break; }
+    for (let col of currentHeaders) {
+        if (columnSearchTexts[col] && columnSearchTexts[col].trim()) {
+            highlightTerm = columnSearchTexts[col];
+            break;
+        }
+    }
     
     let theadHtml = '<tr>';
     for (let h of visibleHeaders) {
@@ -411,7 +556,7 @@ function renderTable() {
     }
 }
 
-// ==================== FILTER UI ====================
+// ========== Filter Card Functions ==========
 function rebuildFilterCards() {
     if (!currentHeaders.length) return;
     dynamicFilterCards.innerHTML = '';
@@ -489,13 +634,17 @@ function showMultiSelectDropdown(columnName, anchorElement) {
     dropdown.style.left = `${rect.left + window.scrollX - 60}px`;
     const listDiv = dropdown.querySelector('#dropdownList');
     const searchInput = dropdown.querySelector('#dropdownSearch');
+    
     function renderList(filter = '') {
         let filtered = sortedValues.filter(v => filter === '' || v.toLowerCase().includes(filter.toLowerCase()));
         listDiv.innerHTML = '';
         filtered.forEach(val => {
             const isChecked = currentSelectedSet.has(val);
             const itemDiv = document.createElement('div');
-            itemDiv.style.display = 'flex'; itemDiv.style.alignItems = 'center'; itemDiv.style.gap = '8px'; itemDiv.style.padding = '5px 0';
+            itemDiv.style.display = 'flex';
+            itemDiv.style.alignItems = 'center';
+            itemDiv.style.gap = '8px';
+            itemDiv.style.padding = '5px 0';
             itemDiv.innerHTML = `<input type="checkbox" value="${escapeHtml(val)}" ${isChecked ? 'checked' : ''}> <span style="font-size:12px;">${escapeHtml(val.length > 50 ? val.slice(0,47)+'...' : val)}</span>`;
             listDiv.appendChild(itemDiv);
         });
@@ -565,7 +714,7 @@ function resetAllFilters() {
     showStatus("All filters and sort reset", "info");
 }
 
-// ==================== FILE PARSING ====================
+// ========== File Parsing Functions ==========
 function parseRobustCSV(csvText) {
     return new Promise((resolve, reject) => {
         const lines = csvText.split(/\r?\n/);
@@ -618,8 +767,7 @@ function parseExcelFile(file) {
                 const rows = jsonData.map(row => {
                     const obj = {};
                     headers.forEach(h => {
-                        let val = row[h];
-                        obj[h] = (val !== undefined && val !== null) ? String(val) : "";
+                        obj[h] = (row[h] !== undefined && row[h] !== null) ? String(row[h]) : "";
                     });
                     return obj;
                 });
@@ -640,8 +788,7 @@ async function parseFileToObjects(file) {
             const reader = new FileReader();
             reader.onload = async (ev) => {
                 try {
-                    const result = await parseRobustCSV(ev.target.result);
-                    resolve(result);
+                    resolve(await parseRobustCSV(ev.target.result));
                 } catch(err) { reject(err); }
             };
             reader.onerror = () => reject("Failed to read CSV file");
@@ -654,25 +801,24 @@ async function parseFileToObjects(file) {
     }
 }
 
-// ==================== FIREBASE OPERATIONS ====================
-async function replaceWithNewData(data, originalHeaders, fileName, onProgress) { 
+// ========== Firebase Data Operations ==========
+async function replaceWithNewData(data, originalHeaders, fileName, onProgress) {
     await database.ref('csvUploads').remove();
     const uploadId = 'current_dataset_' + Date.now();
     const uploadRef = database.ref('csvUploads/' + uploadId);
     const batchSize = 1000;
     const totalBatches = Math.ceil(data.length / batchSize);
-    
     const safeHeaders = originalHeaders.map(h => sanitizeFirebaseKey(h));
     
-    await uploadRef.child('metadata').set({ 
-        timestamp: new Date().toISOString(), 
-        headers: safeHeaders, 
+    await uploadRef.child('metadata').set({
+        timestamp: new Date().toISOString(),
+        headers: safeHeaders,
         originalHeaders: originalHeaders,
-        totalRows: data.length, 
-        fileName, 
-        batchSize, 
-        totalBatches, 
-        completed: false 
+        totalRows: data.length,
+        fileName,
+        batchSize,
+        totalBatches,
+        completed: false
     });
     
     let completedBatches = 0;
@@ -684,7 +830,14 @@ async function replaceWithNewData(data, originalHeaders, fileName, onProgress) {
         completedBatches++;
         const elapsed = (Date.now() - startTime)/1000;
         const rowsPerSec = elapsed > 0 ? Math.floor((i+1)*batchSize / elapsed) : 0;
-        if(onProgress) onProgress({ completedBatches, totalBatches, rowsUploaded: (i+1)*batchSize, totalRows: data.length, rowsPerSecond: rowsPerSec, percentage: ((i+1)*batchSize/data.length)*100 });
+        if(onProgress) onProgress({
+            completedBatches,
+            totalBatches,
+            rowsUploaded: (i+1)*batchSize,
+            totalRows: data.length,
+            rowsPerSecond: rowsPerSec,
+            percentage: ((i+1)*batchSize/data.length)*100
+        });
         await new Promise(r => setTimeout(r, 30));
     }
     await uploadRef.child('metadata').update({ completed: true });
@@ -693,14 +846,19 @@ async function replaceWithNewData(data, originalHeaders, fileName, onProgress) {
 
 async function loadLatestData() {
     if (!database) { showStatus("Firebase not ready", "error"); return; }
-    try {
+    await withSpinner((async () => {
         if(loadBtn) loadBtn.disabled = true;
         const uploadsRef = database.ref('csvUploads');
         const snapshot = await uploadsRef.once('value');
         if (!snapshot.exists()) {
             tableBody.innerHTML = `<tr><td colspan="100">📭 No data. Upload a CSV (Admin only).</td></tr>`;
-            rawDataset = []; filteredSortedData = []; totalRowsElem.innerText = '0'; filteredCountSpan.innerText = '0';
-            excelContainer.style.display = 'none'; filterPanelArea.style.display = 'none'; columnManagerArea.style.display = 'none';
+            rawDataset = [];
+            filteredSortedData = [];
+            totalRowsElem.innerText = '0';
+            filteredCountSpan.innerText = '0';
+            excelContainer.style.display = 'none';
+            filterPanelArea.style.display = 'none';
+            columnManagerArea.style.display = 'none';
             updateLastUpdatedDisplay(null);
             return;
         }
@@ -708,20 +866,22 @@ async function loadLatestData() {
         snapshot.forEach(child => {
             const val = child.val();
             if (val.metadata && val.metadata.completed) {
-                if (!latestUpload || val.metadata.timestamp > latestUpload.metadata.timestamp) latestUpload = { id: child.key, metadata: val.metadata, batches: val.batches || {} };
+                if (!latestUpload || val.metadata.timestamp > latestUpload.metadata.timestamp) {
+                    latestUpload = { id: child.key, metadata: val.metadata, batches: val.batches || {} };
+                }
             }
         });
         if (!latestUpload) throw new Error("No completed dataset");
         const allRows = [];
         const batches = latestUpload.batches;
-        for (let key of Object.keys(batches)) if (batches[key] && batches[key].data) allRows.push(...batches[key].data);
+        for (let key of Object.keys(batches)) {
+            if (batches[key] && batches[key].data) allRows.push(...batches[key].data);
+        }
         rawDataset = allRows;
         currentMetadata = latestUpload.metadata;
-        currentHeaders = latestUpload.metadata.originalHeaders || (rawDataset.length ? Object.keys(rawDataset[0]) : []);
+        currentHeaders = latestUpload.metadata.headers || (rawDataset.length ? Object.keys(rawDataset[0]) : []);
         totalRowsElem.innerText = rawDataset.length.toLocaleString();
-        
         updateLastUpdatedDisplay(currentMetadata);
-        
         loadPreferencesIntoState();
         applyFiltersAndSort();
         currentPage = 1;
@@ -734,176 +894,70 @@ async function loadLatestData() {
         updateFilterChipsDisplay();
         updateFilterContainerHighlight();
         showStatus(`✅ Loaded ${rawDataset.length.toLocaleString()} rows — last updated: ${formatTimestamp(currentMetadata.timestamp)}`, "success");
-    } catch (err) { console.error(err); showStatus("Load error: "+err.message, "error"); } finally { if(loadBtn) loadBtn.disabled = false; }
-}
-
-// ==================== ADMIN AUTHENTICATION ====================
-async function validateAdminWithDB(username, password) {
-    if (!database) throw new Error("Firebase not connected");
-    const adminRef = database.ref('adminUsers');
-    const snapshot = await adminRef.orderByChild('username').equalTo(username).once('value');
-    if (!snapshot.exists()) {
-        throw new Error("Admin account not found. Please contact administrator.");
-    }
-    let matchedUser = null;
-    snapshot.forEach(child => {
-        const user = child.val();
-        if (user.username === username) {
-            matchedUser = { id: child.key, ...user };
-        }
+    })(), "Loading dataset from cloud...").catch(err => {
+        console.error(err);
+        showStatus("Load error: "+err.message, "error");
+    }).finally(() => {
+        if(loadBtn) loadBtn.disabled = false;
     });
-    if (!matchedUser) throw new Error("Invalid credentials");
-    if (matchedUser.password !== password) {
-        throw new Error("Incorrect password");
-    }
-    return matchedUser;
 }
 
-function logoutAdmin() {
-    localStorage.removeItem('csv_admin_session');
-    isAdminLoggedIn = false;
-    currentAdminUser = null;
-    adminSection.classList.remove('visible');
-    adminBadge.innerHTML = '';
-    showStatus("Logged out successfully", "info");
-}
+// ========== Event Listeners ==========
+adminLoginBtn.addEventListener('click', showAdminModal);
 
-function checkExistingAdminSession() {
-    const savedSession = localStorage.getItem('csv_admin_session');
-    if (savedSession) {
-        try {
-            const session = JSON.parse(savedSession);
-            if (session.loggedIn && session.expiry > Date.now()) {
-                isAdminLoggedIn = true;
-                currentAdminUser = session.username;
-                adminSection.classList.add('visible');
-                adminBadge.innerHTML = `<span class="admin-logged-badge">✅ Admin: ${escapeHtml(session.username)} | <button id="logoutBtn" style="background:none; border:none; color:white; cursor:pointer; margin-left:6px;">🚪 Logout</button></span>`;
-                const logoutBtn = document.getElementById('logoutBtn');
-                if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
-                showStatus(`Welcome back, ${session.username}!`, "success");
-                if (rawDataset.length === 0 && database) loadLatestData();
-            } else {
-                localStorage.removeItem('csv_admin_session');
-            }
-        } catch(e) { localStorage.removeItem('csv_admin_session'); }
-    }
-}
-
-function showAdminModal() {
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <h3>🔐 Admin Login</h3>
-            <input type="text" id="adminUsername" placeholder="Username" autocomplete="off">
-            <input type="password" id="adminPassword" placeholder="Password">
-            <div id="modalError" class="error-msg"></div>
-            <div class="modal-buttons">
-                <button id="modalLoginBtn">Login</button>
-                <button id="modalCancelBtn">Cancel</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    
-    const usernameInput = modal.querySelector('#adminUsername');
-    const passwordInput = modal.querySelector('#adminPassword');
-    const loginBtn = modal.querySelector('#modalLoginBtn');
-    const cancelBtn = modal.querySelector('#modalCancelBtn');
-    const errorDiv = modal.querySelector('#modalError');
-    
-    const tryLogin = async () => {
-        const user = usernameInput.value.trim();
-        const pass = passwordInput.value;
-        if (!user || !pass) {
-            errorDiv.textContent = "Please enter username and password";
-            return;
-        }
-        loginBtn.disabled = true;
-        loginBtn.textContent = "Verifying...";
-        try {
-            const adminUser = await validateAdminWithDB(user, pass);
-            isAdminLoggedIn = true;
-            currentAdminUser = adminUser.username;
-            const session = {
-                loggedIn: true,
-                username: adminUser.username,
-                expiry: Date.now() + (60 * 60 * 1000)
-            };
-            localStorage.setItem('csv_admin_session', JSON.stringify(session));
-            adminSection.classList.add('visible');
-            adminBadge.innerHTML = `<span class="admin-logged-badge">✅ Admin: ${escapeHtml(adminUser.username)} | <button id="logoutBtn" style="background:none; border:none; color:white; cursor:pointer; margin-left:6px;">🚪 Logout</button></span>`;
-            const logoutBtn = document.getElementById('logoutBtn');
-            if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
-            showStatus(`Admin access granted. Welcome ${adminUser.username}!`, "success");
-            modal.remove();
-            if (rawDataset.length === 0 && database) loadLatestData();
-        } catch (err) {
-            errorDiv.textContent = err.message;
-            console.error(err);
-        } finally {
-            loginBtn.disabled = false;
-            loginBtn.textContent = "Login";
-        }
-    };
-    
-    loginBtn.addEventListener('click', tryLogin);
-    cancelBtn.addEventListener('click', () => modal.remove());
-    usernameInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') tryLogin(); });
-    passwordInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') tryLogin(); });
-}
-
-// ==================== UPLOAD HANDLER ====================
-if(uploadBtn) uploadBtn.addEventListener('click', async () => {
+uploadBtn.addEventListener('click', async () => {
     if(!isAdminLoggedIn) { showStatus("Admin access required", "error"); return; }
     const file = csvFileInput.files[0];
     if(!file) return showStatus("Select CSV or Excel file", "error");
-    
     const fileExt = file.name.split('.').pop().toLowerCase();
     if (!['csv', 'xlsx', 'xls', 'xlsm'].includes(fileExt)) {
         showStatus("Please upload CSV (.csv) or Excel (.xlsx, .xls, .xlsm) files only", "error");
         return;
     }
-    
-    uploadBtn.disabled=true; progressContainer.style.display='block';
+    uploadBtn.disabled=true;
+    progressContainer.style.display='block';
     try {
         const { headers, data } = await parseFileToObjects(file);
         if (!data.length) throw new Error("No data rows found in file");
-        
-        await replaceWithNewData(data, headers, file.name, (prog) => {
+        await withSpinner(replaceWithNewData(data, headers, file.name, (prog) => {
             progressFill.style.width = `${prog.percentage}%`;
             progressFill.textContent = `${Math.floor(prog.percentage)}%`;
             batchInfo.innerText = `Batch ${prog.completedBatches}/${prog.totalBatches} | ${prog.rowsUploaded.toLocaleString()} rows | ${prog.rowsPerSecond.toLocaleString()} rows/sec`;
             batchProgressElem.innerText = prog.completedBatches;
             uploadSpeedElem.innerText = prog.rowsPerSecond;
-        });
+        }), "Uploading and processing dataset...");
         showStatus(`Upload complete! ${data.length.toLocaleString()} rows from ${file.name}`, "success");
         await loadLatestData();
-    } catch(err) { 
-        showStatus("Upload error: "+err.message, "error"); 
+    } catch(err) {
+        showStatus("Upload error: "+err.message, "error");
         console.error(err);
-    } finally { 
-        uploadBtn.disabled=false; 
-        progressContainer.style.display='none'; 
+    } finally {
+        uploadBtn.disabled=false;
+        progressContainer.style.display='none';
         progressFill.style.width='0%';
         csvFileInput.value = '';
     }
 });
 
-// ==================== EVENT LISTENERS ====================
-if(deleteBtn) deleteBtn.addEventListener('click', async () => {
+deleteBtn.addEventListener('click', async () => {
     if(!isAdminLoggedIn) { showStatus("Admin access required", "error"); return; }
     if(!confirm("Delete ALL data?")) return;
-    await database.ref('csvUploads').remove();
-    rawDataset=[]; filteredSortedData=[]; currentHeaders=[]; currentMetadata=null;
-    totalRowsElem.innerText='0'; filteredCountSpan.innerText='0';
-    excelContainer.style.display='none'; filterPanelArea.style.display='none'; columnManagerArea.style.display='none';
+    await withSpinner(database.ref('csvUploads').remove(), "Deleting data...");
+    rawDataset = [];
+    filteredSortedData = [];
+    currentHeaders = [];
+    currentMetadata = null;
+    totalRowsElem.innerText = '0';
+    filteredCountSpan.innerText = '0';
+    excelContainer.style.display = 'none';
+    filterPanelArea.style.display = 'none';
+    columnManagerArea.style.display = 'none';
     updateLastUpdatedDisplay(null);
     showStatus("All data removed","success");
-    localStorage.removeItem(STORAGE_KEYS.FILTER_TEXTS); 
-    localStorage.removeItem(STORAGE_KEYS.FILTER_SELECTED); 
-    localStorage.removeItem(STORAGE_KEYS.SORT_COL); 
-    localStorage.removeItem(STORAGE_KEYS.SORT_DIR); 
+    localStorage.removeItem(STORAGE_KEYS.FILTER_TEXTS);
+    localStorage.removeItem(STORAGE_KEYS.FILTER_SELECTED);
+    localStorage.removeItem(STORAGE_KEYS.SORT_COL);
+    localStorage.removeItem(STORAGE_KEYS.SORT_DIR);
     localStorage.removeItem(STORAGE_KEYS.COLUMN_VISIBILITY);
 });
 
@@ -911,13 +965,25 @@ document.getElementById('applyAllFiltersBtn')?.addEventListener('click', () => p
 document.getElementById('resetAllFiltersBtn')?.addEventListener('click', () => resetAllFilters());
 resetColumnVisibilityBtn?.addEventListener('click', () => resetColumnVisibility());
 if(loadBtn) loadBtn.addEventListener('click', loadLatestData);
-document.getElementById('prevPage')?.addEventListener('click', () => { if(currentPage>1){ currentPage--; renderTable(); } });
-document.getElementById('nextPage')?.addEventListener('click', () => { const total=Math.ceil(filteredSortedData.length/rowsPerPage); if(currentPage<total){ currentPage++; renderTable(); } });
-adminLoginBtn.addEventListener('click', showAdminModal);
 
-// ==================== INITIALIZATION ====================
-window.addEventListener('load', () => { 
+document.getElementById('prevPage')?.addEventListener('click', () => {
+    if(currentPage > 1) {
+        currentPage--;
+        renderTable();
+    }
+});
+
+document.getElementById('nextPage')?.addEventListener('click', () => {
+    const total = Math.ceil(filteredSortedData.length / rowsPerPage);
+    if(currentPage < total) {
+        currentPage++;
+        renderTable();
+    }
+});
+
+// ========== Initialize ==========
+window.addEventListener('load', () => {
     checkExistingAdminSession();
-    if(database) loadLatestData(); 
+    if(database) loadLatestData();
     else showStatus("Firebase issue","error");
 });
