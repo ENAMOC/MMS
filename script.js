@@ -1,4 +1,4 @@
-// ---------- FIREBASE CONFIG ----------
+// ==================== FIREBASE CONFIGURATION ====================
 const firebaseConfig = {
     apiKey: "AIzaSyBgQ-NRH_UFKwEt0PybJ3y2zKGvRSqvLoU",
     authDomain: "portfolio-70f03.firebaseapp.com",
@@ -9,6 +9,7 @@ const firebaseConfig = {
     appId: "1:815368927704:web:119b288294c5b26d2e1aad"
 };
 
+// Initialize Firebase
 let database;
 try {
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
@@ -16,7 +17,7 @@ try {
     console.log("✅ Firebase ready");
 } catch(e) { console.warn(e); }
 
-// DOM elements
+// ==================== DOM ELEMENTS ====================
 const csvFileInput = document.getElementById('csvFile');
 const uploadBtn = document.getElementById('uploadBtn');
 const loadBtn = document.getElementById('loadBtn');
@@ -44,12 +45,10 @@ const adminLoginBtn = document.getElementById('adminLoginBtn');
 const adminBadge = document.getElementById('adminBadge');
 const lastUpdatedTimeSpan = document.getElementById('lastUpdatedTime');
 
-// Admin state - checking from Firebase
+// ==================== GLOBAL STATE ====================
 let isAdminLoggedIn = false;
 let currentAdminUser = null;
 let currentMetadata = null;
-
-// Data state variables
 let rawDataset = [];
 let currentHeaders = [];
 let filteredSortedData = [];
@@ -69,7 +68,17 @@ const STORAGE_KEYS = {
     COLUMN_VISIBILITY: 'csv_persist_column_visibility'
 };
 
-// Helper: Format timestamp nicely
+// ==================== UTILITY FUNCTIONS ====================
+function escapeHtml(str) {
+    if(!str) return '';
+    return String(str).replace(/[&<>]/g, function(m){
+        if(m === '&') return '&amp;';
+        if(m === '<') return '&lt;';
+        if(m === '>') return '&gt;';
+        return m;
+    });
+}
+
 function formatTimestamp(timestamp) {
     if (!timestamp) return '—';
     try {
@@ -88,6 +97,32 @@ function formatTimestamp(timestamp) {
     }
 }
 
+function showStatus(msg, type) { 
+    if (!statusDiv) return;
+    statusDiv.innerHTML = msg; 
+    statusDiv.className = `status ${type}`; 
+    setTimeout(() => { 
+        if(statusDiv.innerHTML === msg) { 
+            statusDiv.innerHTML = ''; 
+            statusDiv.className = 'status'; 
+        } 
+    }, 4000);
+}
+
+function sanitizeFirebaseKey(key) {
+    if (typeof key !== 'string') return String(key);
+    return key.replace(/[\.#\$\/\[\]]/g, '_');
+}
+
+function sanitizeRowObject(row) {
+    const cleanRow = {};
+    for (let [k, v] of Object.entries(row)) {
+        const safeKey = sanitizeFirebaseKey(k);
+        cleanRow[safeKey] = v;
+    }
+    return cleanRow;
+}
+
 function updateLastUpdatedDisplay(metadata) {
     if (metadata && metadata.timestamp) {
         lastUpdatedTimeSpan.innerHTML = `${formatTimestamp(metadata.timestamp)} <span style="font-size:10px; opacity:0.7;">(${metadata.fileName || 'CSV'})</span>`;
@@ -99,200 +134,7 @@ function updateLastUpdatedDisplay(metadata) {
     }
 }
 
-function showStatus(msg, type) { 
-    if (!statusDiv) return;
-    statusDiv.innerHTML = msg; 
-    statusDiv.className = `status ${type}`; 
-    setTimeout(() => { if(statusDiv.innerHTML === msg) { statusDiv.innerHTML = ''; statusDiv.className = 'status'; } }, 4000);
-}
-
-function escapeHtml(str) { 
-    if(!str) return ''; 
-    return String(str).replace(/[&<>]/g, function(m){ 
-        if(m === '&') return '&amp;'; 
-        if(m === '<') return '&lt;'; 
-        if(m === '>') return '&gt;'; 
-        return m;
-    }); 
-}
-
-// ---------- CHECK EXISTING SESSION ----------
-function checkExistingAdminSession() {
-    const savedSession = localStorage.getItem('csv_admin_session');
-    if (savedSession) {
-        try {
-            const session = JSON.parse(savedSession);
-            if (session.loggedIn && session.expiry > Date.now()) {
-                isAdminLoggedIn = true;
-                currentAdminUser = session.username;
-                adminSection.classList.add('visible');
-                adminBadge.innerHTML = `<span class="admin-logged-badge">✅ Admin: ${escapeHtml(session.username)} | <button id="logoutBtn" style="background:none; border:none; color:white; cursor:pointer; margin-left:6px;">🚪 Logout</button></span>`;
-                const logoutBtn = document.getElementById('logoutBtn');
-                if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
-                showStatus(`Welcome back, ${session.username}!`, "success");
-                if (rawDataset.length === 0 && database) loadLatestData();
-            } else {
-                localStorage.removeItem('csv_admin_session');
-            }
-        } catch(e) { localStorage.removeItem('csv_admin_session'); }
-    }
-}
-
-function logoutAdmin() {
-    localStorage.removeItem('csv_admin_session');
-    isAdminLoggedIn = false;
-    currentAdminUser = null;
-    adminSection.classList.remove('visible');
-    adminBadge.innerHTML = '';
-    showStatus("Logged out successfully", "info");
-}
-
-// ---------- ADMIN LOGIN WITH FIREBASE AUTH (from adminUsers) ----------
-async function validateAdminWithDB(username, password) {
-    if (!database) throw new Error("Firebase not connected");
-    const adminRef = database.ref('adminUsers');
-    const snapshot = await adminRef.orderByChild('username').equalTo(username).once('value');
-    if (!snapshot.exists()) {
-        throw new Error("Admin account not found. Please contact administrator.");
-    }
-    let matchedUser = null;
-    snapshot.forEach(child => {
-        const user = child.val();
-        if (user.username === username) {
-            matchedUser = { id: child.key, ...user };
-        }
-    });
-    if (!matchedUser) throw new Error("Invalid credentials");
-    if (matchedUser.password !== password) {
-        throw new Error("Incorrect password");
-    }
-    return matchedUser;
-}
-
-function showAdminModal() {
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <h3>🔐 Admin Login</h3>
-            <input type="text" id="adminUsername" placeholder="Username" autocomplete="off">
-            <input type="password" id="adminPassword" placeholder="Password">
-            <div id="modalError" class="error-msg"></div>
-            <div class="modal-buttons">
-                <button id="modalLoginBtn">Login</button>
-                <button id="modalCancelBtn">Cancel</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    
-    const usernameInput = modal.querySelector('#adminUsername');
-    const passwordInput = modal.querySelector('#adminPassword');
-    const loginBtn = modal.querySelector('#modalLoginBtn');
-    const cancelBtn = modal.querySelector('#modalCancelBtn');
-    const errorDiv = modal.querySelector('#modalError');
-    
-    const tryLogin = async () => {
-        const user = usernameInput.value.trim();
-        const pass = passwordInput.value;
-        if (!user || !pass) {
-            errorDiv.textContent = "Please enter username and password";
-            return;
-        }
-        loginBtn.disabled = true;
-        loginBtn.textContent = "Verifying...";
-        try {
-            const adminUser = await validateAdminWithDB(user, pass);
-            isAdminLoggedIn = true;
-            currentAdminUser = adminUser.username;
-            const session = {
-                loggedIn: true,
-                username: adminUser.username,
-                expiry: Date.now() + (60 * 60 * 1000)
-            };
-            localStorage.setItem('csv_admin_session', JSON.stringify(session));
-            adminSection.classList.add('visible');
-            adminBadge.innerHTML = `<span class="admin-logged-badge">✅ Admin: ${escapeHtml(adminUser.username)} | <button id="logoutBtn" style="background:none; border:none; color:white; cursor:pointer; margin-left:6px;">🚪 Logout</button></span>`;
-            const logoutBtn = document.getElementById('logoutBtn');
-            if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
-            showStatus(`Admin access granted. Welcome ${adminUser.username}!`, "success");
-            modal.remove();
-            if (rawDataset.length === 0 && database) loadLatestData();
-        } catch (err) {
-            errorDiv.textContent = err.message;
-            console.error(err);
-        } finally {
-            loginBtn.disabled = false;
-            loginBtn.textContent = "Login";
-        }
-    };
-    
-    loginBtn.addEventListener('click', tryLogin);
-    cancelBtn.addEventListener('click', () => modal.remove());
-    usernameInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') tryLogin(); });
-    passwordInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') tryLogin(); });
-}
-
-// ---------- FILTER AND SORT FUNCTIONS ----------
-function saveAllPreferences() {
-    if (!currentHeaders.length) return;
-    try {
-        localStorage.setItem(STORAGE_KEYS.FILTER_TEXTS, JSON.stringify(columnSearchTexts));
-        const selectedSerialized = {};
-        for (let col in columnSelectedValues) {
-            if (columnSelectedValues[col] && columnSelectedValues[col].size) {
-                selectedSerialized[col] = Array.from(columnSelectedValues[col]);
-            }
-        }
-        localStorage.setItem(STORAGE_KEYS.FILTER_SELECTED, JSON.stringify(selectedSerialized));
-        localStorage.setItem(STORAGE_KEYS.SORT_COL, sortConfig.column || '');
-        localStorage.setItem(STORAGE_KEYS.SORT_DIR, sortConfig.direction);
-        localStorage.setItem(STORAGE_KEYS.COLUMN_VISIBILITY, JSON.stringify(columnVisibility));
-    } catch(e) { console.warn("Save prefs error", e); }
-}
-
-function loadPreferencesIntoState() {
-    try {
-        const savedTexts = localStorage.getItem(STORAGE_KEYS.FILTER_TEXTS);
-        if (savedTexts) {
-            const parsed = JSON.parse(savedTexts);
-            const validTexts = {};
-            for (let h of currentHeaders) if (parsed[h]) validTexts[h] = parsed[h];
-            columnSearchTexts = validTexts;
-        }
-        const savedSelected = localStorage.getItem(STORAGE_KEYS.FILTER_SELECTED);
-        if (savedSelected) {
-            const parsedSel = JSON.parse(savedSelected);
-            const validSelected = {};
-            for (let h of currentHeaders) {
-                if (parsedSel[h] && Array.isArray(parsedSel[h])) {
-                    validSelected[h] = new Set(parsedSel[h]);
-                }
-            }
-            columnSelectedValues = validSelected;
-        }
-        const savedSortCol = localStorage.getItem(STORAGE_KEYS.SORT_COL);
-        const savedSortDir = localStorage.getItem(STORAGE_KEYS.SORT_DIR);
-        if (savedSortCol && currentHeaders.includes(savedSortCol)) {
-            sortConfig.column = savedSortCol;
-            sortConfig.direction = (savedSortDir === 'asc' || savedSortDir === 'desc') ? savedSortDir : 'asc';
-        } else {
-            sortConfig = { column: null, direction: 'asc' };
-        }
-        const savedVis = localStorage.getItem(STORAGE_KEYS.COLUMN_VISIBILITY);
-        if (savedVis) {
-            const parsedVis = JSON.parse(savedVis);
-            const validVis = {};
-            for (let h of currentHeaders) {
-                validVis[h] = parsedVis[h] !== undefined ? parsedVis[h] : true;
-            }
-            columnVisibility = validVis;
-        } else {
-            currentHeaders.forEach(h => { columnVisibility[h] = true; });
-        }
-    } catch(e) { console.warn("Load prefs error", e); }
-}
-
+// ==================== HINT MATCH & HIGHLIGHT ====================
 function isHintMatch(cellValue, searchRaw) {
     if (!searchRaw || searchRaw.trim() === "") return true;
     const cellStr = String(cellValue).toLowerCase().trim();
@@ -312,11 +154,6 @@ function isHintMatch(cellValue, searchRaw) {
             if (base.length >= 3 && cellStr.includes(base)) return true;
         }
         if (cellStr.includes(searchTerm + suffix)) return true;
-    }
-    const words = cellStr.split(/\s+/);
-    for (let w of words) {
-        if (w.startsWith(searchTerm) && searchTerm.length >= 3) return true;
-        if (searchTerm.startsWith(w) && w.length >= 3 && searchTerm.includes(w)) return true;
     }
     return false;
 }
@@ -345,6 +182,7 @@ function highlightTextWithHint(cellText, searchTerm) {
     return escapeHtml(str);
 }
 
+// ==================== FILTERING & SORTING ====================
 function isAnyFilterActive() {
     for (let col of currentHeaders) {
         const hasText = columnSearchTexts[col] && columnSearchTexts[col].trim() !== "";
@@ -413,6 +251,66 @@ function applyFiltersAndSort() {
     return filteredSortedData;
 }
 
+// ==================== PERSISTENCE ====================
+function saveAllPreferences() {
+    if (!currentHeaders.length) return;
+    try {
+        localStorage.setItem(STORAGE_KEYS.FILTER_TEXTS, JSON.stringify(columnSearchTexts));
+        const selectedSerialized = {};
+        for (let col in columnSelectedValues) {
+            if (columnSelectedValues[col] && columnSelectedValues[col].size) {
+                selectedSerialized[col] = Array.from(columnSelectedValues[col]);
+            }
+        }
+        localStorage.setItem(STORAGE_KEYS.FILTER_SELECTED, JSON.stringify(selectedSerialized));
+        localStorage.setItem(STORAGE_KEYS.SORT_COL, sortConfig.column || '');
+        localStorage.setItem(STORAGE_KEYS.SORT_DIR, sortConfig.direction);
+        localStorage.setItem(STORAGE_KEYS.COLUMN_VISIBILITY, JSON.stringify(columnVisibility));
+    } catch(e) { console.warn("Save prefs error", e); }
+}
+
+function loadPreferencesIntoState() {
+    try {
+        const savedTexts = localStorage.getItem(STORAGE_KEYS.FILTER_TEXTS);
+        if (savedTexts) {
+            const parsed = JSON.parse(savedTexts);
+            const validTexts = {};
+            for (let h of currentHeaders) if (parsed[h]) validTexts[h] = parsed[h];
+            columnSearchTexts = validTexts;
+        }
+        const savedSelected = localStorage.getItem(STORAGE_KEYS.FILTER_SELECTED);
+        if (savedSelected) {
+            const parsedSel = JSON.parse(savedSelected);
+            const validSelected = {};
+            for (let h of currentHeaders) {
+                if (parsedSel[h] && Array.isArray(parsedSel[h])) {
+                    validSelected[h] = new Set(parsedSel[h]);
+                }
+            }
+            columnSelectedValues = validSelected;
+        }
+        const savedSortCol = localStorage.getItem(STORAGE_KEYS.SORT_COL);
+        const savedSortDir = localStorage.getItem(STORAGE_KEYS.SORT_DIR);
+        if (savedSortCol && currentHeaders.includes(savedSortCol)) {
+            sortConfig.column = savedSortCol;
+            sortConfig.direction = (savedSortDir === 'asc' || savedSortDir === 'desc') ? savedSortDir : 'asc';
+        } else {
+            sortConfig = { column: null, direction: 'asc' };
+        }
+        const savedVis = localStorage.getItem(STORAGE_KEYS.COLUMN_VISIBILITY);
+        if (savedVis) {
+            const parsedVis = JSON.parse(savedVis);
+            const validVis = {};
+            for (let h of currentHeaders) {
+                validVis[h] = parsedVis[h] !== undefined ? parsedVis[h] : true;
+            }
+            columnVisibility = validVis;
+        } else {
+            currentHeaders.forEach(h => { columnVisibility[h] = true; });
+        }
+    } catch(e) { console.warn("Load prefs error", e); }
+}
+
 function persistAndRefreshUI() {
     saveAllPreferences();
     applyFiltersAndSort();
@@ -423,6 +321,7 @@ function persistAndRefreshUI() {
     if (currentHeaders.length) renderColumnManager();
 }
 
+// ==================== COLUMN MANAGER ====================
 function renderColumnManager() {
     if (!currentHeaders.length) return;
     columnToggleGroup.innerHTML = '';
@@ -448,6 +347,7 @@ function resetColumnVisibility() {
     showStatus("All columns visible", "success");
 }
 
+// ==================== TABLE RENDERING ====================
 function renderTable() {
     if (!filteredSortedData.length) {
         tableBody.innerHTML = `<tr><td colspan="100" class="empty-placeholder">📭 No matching records. Adjust column filters.</td></tr>`;
@@ -511,6 +411,7 @@ function renderTable() {
     }
 }
 
+// ==================== FILTER UI ====================
 function rebuildFilterCards() {
     if (!currentHeaders.length) return;
     dynamicFilterCards.innerHTML = '';
@@ -664,7 +565,132 @@ function resetAllFilters() {
     showStatus("All filters and sort reset", "info");
 }
 
-// ---------- FIREBASE DATA OPERATIONS ----------
+// ==================== FILE PARSING ====================
+function parseRobustCSV(csvText) {
+    return new Promise((resolve, reject) => {
+        const lines = csvText.split(/\r?\n/);
+        if(lines.length < 2) reject("CSV has no data rows");
+        const parseRow = (line) => {
+            const result = [];
+            let inQuote = false;
+            let current = '';
+            for(let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if(ch === '"') {
+                    if(inQuote && line[i+1] === '"') { current += '"'; i++; }
+                    else inQuote = !inQuote;
+                } else if(ch === ',' && !inQuote) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += ch;
+                }
+            }
+            result.push(current.trim());
+            return result.map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"'));
+        };
+        const headers = parseRow(lines[0]).map(h => h.trim());
+        const data = [];
+        for(let i = 1; i < lines.length; i++) {
+            if(lines[i].trim() === "") continue;
+            const values = parseRow(lines[i]);
+            const rowObj = {};
+            headers.forEach((h, idx) => {
+                rowObj[h] = (values[idx] !== undefined ? String(values[idx]) : "");
+            });
+            data.push(rowObj);
+        }
+        resolve({ headers, data });
+    });
+}
+
+function parseExcelFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', cellText: true, cellDates: false, defval: "" });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: "", raw: false });
+                if (!jsonData.length) reject("Excel file has no data rows");
+                const headers = Object.keys(jsonData[0]);
+                const rows = jsonData.map(row => {
+                    const obj = {};
+                    headers.forEach(h => {
+                        let val = row[h];
+                        obj[h] = (val !== undefined && val !== null) ? String(val) : "";
+                    });
+                    return obj;
+                });
+                resolve({ headers, data: rows });
+            } catch(err) {
+                reject("Error parsing Excel: " + err.message);
+            }
+        };
+        reader.onerror = () => reject("Failed to read Excel file");
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+async function parseFileToObjects(file) {
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.csv')) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                try {
+                    const result = await parseRobustCSV(ev.target.result);
+                    resolve(result);
+                } catch(err) { reject(err); }
+            };
+            reader.onerror = () => reject("Failed to read CSV file");
+            reader.readAsText(file, "UTF-8");
+        });
+    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.xlsm')) {
+        return await parseExcelFile(file);
+    } else {
+        throw new Error("Unsupported file format. Please upload CSV or Excel files.");
+    }
+}
+
+// ==================== FIREBASE OPERATIONS ====================
+async function replaceWithNewData(data, originalHeaders, fileName, onProgress) { 
+    await database.ref('csvUploads').remove();
+    const uploadId = 'current_dataset_' + Date.now();
+    const uploadRef = database.ref('csvUploads/' + uploadId);
+    const batchSize = 1000;
+    const totalBatches = Math.ceil(data.length / batchSize);
+    
+    const safeHeaders = originalHeaders.map(h => sanitizeFirebaseKey(h));
+    
+    await uploadRef.child('metadata').set({ 
+        timestamp: new Date().toISOString(), 
+        headers: safeHeaders, 
+        originalHeaders: originalHeaders,
+        totalRows: data.length, 
+        fileName, 
+        batchSize, 
+        totalBatches, 
+        completed: false 
+    });
+    
+    let completedBatches = 0;
+    const startTime = Date.now();
+    for (let i = 0; i < totalBatches; i++) {
+        const batchRaw = data.slice(i * batchSize, Math.min((i+1)*batchSize, data.length));
+        const sanitizedBatch = batchRaw.map(row => sanitizeRowObject(row));
+        await uploadRef.child('batches').child(`batch_${i}`).set({ index: i, data: sanitizedBatch });
+        completedBatches++;
+        const elapsed = (Date.now() - startTime)/1000;
+        const rowsPerSec = elapsed > 0 ? Math.floor((i+1)*batchSize / elapsed) : 0;
+        if(onProgress) onProgress({ completedBatches, totalBatches, rowsUploaded: (i+1)*batchSize, totalRows: data.length, rowsPerSecond: rowsPerSec, percentage: ((i+1)*batchSize/data.length)*100 });
+        await new Promise(r => setTimeout(r, 30));
+    }
+    await uploadRef.child('metadata').update({ completed: true });
+    return { uploadId, totalRows: data.length };
+}
+
 async function loadLatestData() {
     if (!database) { showStatus("Firebase not ready", "error"); return; }
     try {
@@ -691,7 +717,7 @@ async function loadLatestData() {
         for (let key of Object.keys(batches)) if (batches[key] && batches[key].data) allRows.push(...batches[key].data);
         rawDataset = allRows;
         currentMetadata = latestUpload.metadata;
-        currentHeaders = latestUpload.metadata.headers || (rawDataset.length ? Object.keys(rawDataset[0]) : []);
+        currentHeaders = latestUpload.metadata.originalHeaders || (rawDataset.length ? Object.keys(rawDataset[0]) : []);
         totalRowsElem.innerText = rawDataset.length.toLocaleString();
         
         updateLastUpdatedDisplay(currentMetadata);
@@ -711,77 +737,160 @@ async function loadLatestData() {
     } catch (err) { console.error(err); showStatus("Load error: "+err.message, "error"); } finally { if(loadBtn) loadBtn.disabled = false; }
 }
 
-async function replaceWithNewData(data, headers, fileName, onProgress) { 
-    await database.ref('csvUploads').remove();
-    const uploadId = 'current_dataset_' + Date.now();
-    const uploadRef = database.ref('csvUploads/' + uploadId);
-    const batchSize = 1200;
-    const totalBatches = Math.ceil(data.length / batchSize);
-    await uploadRef.child('metadata').set({ timestamp: new Date().toISOString(), headers, totalRows: data.length, fileName, batchSize, totalBatches, completed: false });
-    let completedBatches = 0;
-    const startTime = Date.now();
-    for (let i = 0; i < totalBatches; i++) {
-        const batchData = data.slice(i * batchSize, Math.min((i+1)*batchSize, data.length));
-        await uploadRef.child('batches').child(`batch_${i}`).set({ index: i, data: batchData });
-        completedBatches++;
-        const elapsed = (Date.now() - startTime)/1000;
-        const rowsPerSec = Math.floor((i+1)*batchSize / elapsed);
-        if(onProgress) onProgress({ completedBatches, totalBatches, rowsUploaded: (i+1)*batchSize, totalRows: data.length, rowsPerSecond: rowsPerSec, percentage: ((i+1)*batchSize/data.length)*100 });
-        await new Promise(r => setTimeout(r, 50));
+// ==================== ADMIN AUTHENTICATION ====================
+async function validateAdminWithDB(username, password) {
+    if (!database) throw new Error("Firebase not connected");
+    const adminRef = database.ref('adminUsers');
+    const snapshot = await adminRef.orderByChild('username').equalTo(username).once('value');
+    if (!snapshot.exists()) {
+        throw new Error("Admin account not found. Please contact administrator.");
     }
-    await uploadRef.child('metadata').update({ completed: true });
-    return { uploadId, totalRows: data.length };
-}
-
-function parseLargeCSV(csvText) { 
-    return new Promise((resolve, reject) => {
-        const lines = csvText.split(/\r?\n/);
-        if(lines.length<2) reject("empty");
-        const headers = lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
-        const data = [];
-        for(let i=1;i<lines.length;i++) {
-            if(!lines[i].trim()) continue;
-            let row = [], cur='', inQuotes=false;
-            for(let ch of lines[i]) {
-                if(ch==='"') inQuotes=!inQuotes;
-                else if(ch===',' && !inQuotes) { row.push(cur.trim()); cur=''; }
-                else cur+=ch;
-            }
-            row.push(cur.trim());
-            row = row.map(v=>v.replace(/^"|"$/g,''));
-            let obj={}; headers.forEach((h,idx)=> obj[h]=row[idx]||'');
-            data.push(obj);
+    let matchedUser = null;
+    snapshot.forEach(child => {
+        const user = child.val();
+        if (user.username === username) {
+            matchedUser = { id: child.key, ...user };
         }
-        resolve({ headers, data });
     });
+    if (!matchedUser) throw new Error("Invalid credentials");
+    if (matchedUser.password !== password) {
+        throw new Error("Incorrect password");
+    }
+    return matchedUser;
 }
 
-// ---------- EVENT LISTENERS ----------
-adminLoginBtn.addEventListener('click', showAdminModal);
+function logoutAdmin() {
+    localStorage.removeItem('csv_admin_session');
+    isAdminLoggedIn = false;
+    currentAdminUser = null;
+    adminSection.classList.remove('visible');
+    adminBadge.innerHTML = '';
+    showStatus("Logged out successfully", "info");
+}
 
+function checkExistingAdminSession() {
+    const savedSession = localStorage.getItem('csv_admin_session');
+    if (savedSession) {
+        try {
+            const session = JSON.parse(savedSession);
+            if (session.loggedIn && session.expiry > Date.now()) {
+                isAdminLoggedIn = true;
+                currentAdminUser = session.username;
+                adminSection.classList.add('visible');
+                adminBadge.innerHTML = `<span class="admin-logged-badge">✅ Admin: ${escapeHtml(session.username)} | <button id="logoutBtn" style="background:none; border:none; color:white; cursor:pointer; margin-left:6px;">🚪 Logout</button></span>`;
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
+                showStatus(`Welcome back, ${session.username}!`, "success");
+                if (rawDataset.length === 0 && database) loadLatestData();
+            } else {
+                localStorage.removeItem('csv_admin_session');
+            }
+        } catch(e) { localStorage.removeItem('csv_admin_session'); }
+    }
+}
+
+function showAdminModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <h3>🔐 Admin Login</h3>
+            <input type="text" id="adminUsername" placeholder="Username" autocomplete="off">
+            <input type="password" id="adminPassword" placeholder="Password">
+            <div id="modalError" class="error-msg"></div>
+            <div class="modal-buttons">
+                <button id="modalLoginBtn">Login</button>
+                <button id="modalCancelBtn">Cancel</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    const usernameInput = modal.querySelector('#adminUsername');
+    const passwordInput = modal.querySelector('#adminPassword');
+    const loginBtn = modal.querySelector('#modalLoginBtn');
+    const cancelBtn = modal.querySelector('#modalCancelBtn');
+    const errorDiv = modal.querySelector('#modalError');
+    
+    const tryLogin = async () => {
+        const user = usernameInput.value.trim();
+        const pass = passwordInput.value;
+        if (!user || !pass) {
+            errorDiv.textContent = "Please enter username and password";
+            return;
+        }
+        loginBtn.disabled = true;
+        loginBtn.textContent = "Verifying...";
+        try {
+            const adminUser = await validateAdminWithDB(user, pass);
+            isAdminLoggedIn = true;
+            currentAdminUser = adminUser.username;
+            const session = {
+                loggedIn: true,
+                username: adminUser.username,
+                expiry: Date.now() + (60 * 60 * 1000)
+            };
+            localStorage.setItem('csv_admin_session', JSON.stringify(session));
+            adminSection.classList.add('visible');
+            adminBadge.innerHTML = `<span class="admin-logged-badge">✅ Admin: ${escapeHtml(adminUser.username)} | <button id="logoutBtn" style="background:none; border:none; color:white; cursor:pointer; margin-left:6px;">🚪 Logout</button></span>`;
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
+            showStatus(`Admin access granted. Welcome ${adminUser.username}!`, "success");
+            modal.remove();
+            if (rawDataset.length === 0 && database) loadLatestData();
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            console.error(err);
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.textContent = "Login";
+        }
+    };
+    
+    loginBtn.addEventListener('click', tryLogin);
+    cancelBtn.addEventListener('click', () => modal.remove());
+    usernameInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') tryLogin(); });
+    passwordInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') tryLogin(); });
+}
+
+// ==================== UPLOAD HANDLER ====================
 if(uploadBtn) uploadBtn.addEventListener('click', async () => {
     if(!isAdminLoggedIn) { showStatus("Admin access required", "error"); return; }
     const file = csvFileInput.files[0];
-    if(!file) return showStatus("Select CSV","error");
+    if(!file) return showStatus("Select CSV or Excel file", "error");
+    
+    const fileExt = file.name.split('.').pop().toLowerCase();
+    if (!['csv', 'xlsx', 'xls', 'xlsm'].includes(fileExt)) {
+        showStatus("Please upload CSV (.csv) or Excel (.xlsx, .xls, .xlsm) files only", "error");
+        return;
+    }
+    
     uploadBtn.disabled=true; progressContainer.style.display='block';
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-        try {
-            const { headers, data } = await parseLargeCSV(ev.target.result);
-            await replaceWithNewData(data, headers, file.name, (prog) => {
-                progressFill.style.width = `${prog.percentage}%`;
-                progressFill.textContent = `${Math.floor(prog.percentage)}%`;
-                batchInfo.innerText = `Batch ${prog.completedBatches}/${prog.totalBatches} | ${prog.rowsUploaded.toLocaleString()} rows | ${prog.rowsPerSecond.toLocaleString()} rows/sec`;
-                batchProgressElem.innerText = prog.completedBatches;
-                uploadSpeedElem.innerText = prog.rowsPerSecond;
-            });
-            showStatus("Upload complete! Data replaced.","success");
-            await loadLatestData();
-        } catch(err) { showStatus("Upload error: "+err.message,"error"); } finally { uploadBtn.disabled=false; progressContainer.style.display='none'; progressFill.style.width='0%'; }
-    };
-    reader.readAsText(file,"UTF-8");
+    try {
+        const { headers, data } = await parseFileToObjects(file);
+        if (!data.length) throw new Error("No data rows found in file");
+        
+        await replaceWithNewData(data, headers, file.name, (prog) => {
+            progressFill.style.width = `${prog.percentage}%`;
+            progressFill.textContent = `${Math.floor(prog.percentage)}%`;
+            batchInfo.innerText = `Batch ${prog.completedBatches}/${prog.totalBatches} | ${prog.rowsUploaded.toLocaleString()} rows | ${prog.rowsPerSecond.toLocaleString()} rows/sec`;
+            batchProgressElem.innerText = prog.completedBatches;
+            uploadSpeedElem.innerText = prog.rowsPerSecond;
+        });
+        showStatus(`Upload complete! ${data.length.toLocaleString()} rows from ${file.name}`, "success");
+        await loadLatestData();
+    } catch(err) { 
+        showStatus("Upload error: "+err.message, "error"); 
+        console.error(err);
+    } finally { 
+        uploadBtn.disabled=false; 
+        progressContainer.style.display='none'; 
+        progressFill.style.width='0%';
+        csvFileInput.value = '';
+    }
 });
 
+// ==================== EVENT LISTENERS ====================
 if(deleteBtn) deleteBtn.addEventListener('click', async () => {
     if(!isAdminLoggedIn) { showStatus("Admin access required", "error"); return; }
     if(!confirm("Delete ALL data?")) return;
@@ -791,7 +900,11 @@ if(deleteBtn) deleteBtn.addEventListener('click', async () => {
     excelContainer.style.display='none'; filterPanelArea.style.display='none'; columnManagerArea.style.display='none';
     updateLastUpdatedDisplay(null);
     showStatus("All data removed","success");
-    localStorage.removeItem(STORAGE_KEYS.FILTER_TEXTS); localStorage.removeItem(STORAGE_KEYS.FILTER_SELECTED); localStorage.removeItem(STORAGE_KEYS.SORT_COL); localStorage.removeItem(STORAGE_KEYS.SORT_DIR); localStorage.removeItem(STORAGE_KEYS.COLUMN_VISIBILITY);
+    localStorage.removeItem(STORAGE_KEYS.FILTER_TEXTS); 
+    localStorage.removeItem(STORAGE_KEYS.FILTER_SELECTED); 
+    localStorage.removeItem(STORAGE_KEYS.SORT_COL); 
+    localStorage.removeItem(STORAGE_KEYS.SORT_DIR); 
+    localStorage.removeItem(STORAGE_KEYS.COLUMN_VISIBILITY);
 });
 
 document.getElementById('applyAllFiltersBtn')?.addEventListener('click', () => persistAndRefreshUI());
@@ -800,8 +913,9 @@ resetColumnVisibilityBtn?.addEventListener('click', () => resetColumnVisibility(
 if(loadBtn) loadBtn.addEventListener('click', loadLatestData);
 document.getElementById('prevPage')?.addEventListener('click', () => { if(currentPage>1){ currentPage--; renderTable(); } });
 document.getElementById('nextPage')?.addEventListener('click', () => { const total=Math.ceil(filteredSortedData.length/rowsPerPage); if(currentPage<total){ currentPage++; renderTable(); } });
+adminLoginBtn.addEventListener('click', showAdminModal);
 
-// Initialize on page load
+// ==================== INITIALIZATION ====================
 window.addEventListener('load', () => { 
     checkExistingAdminSession();
     if(database) loadLatestData(); 
