@@ -894,7 +894,7 @@ async function loadLatestData() {
         updateFilterChipsDisplay();
         updateFilterContainerHighlight();
         showStatus(`✅ Loaded ${rawDataset.length.toLocaleString()} rows — last updated: ${formatTimestamp(currentMetadata.timestamp)}`, "success");
-    })(), "Loading dataset from cloud...").catch(err => {
+    })(), "Please wait...").catch(err => {
         console.error(err);
         showStatus("Load error: "+err.message, "error");
     }).finally(() => {
