@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Persistent CSV Dataset | Filters + Column Hide/Show (Auto-Save)</title>
+    <title>Secure CSV Dataset | Credentials-Only Access</title>
     <style>
         * {
             box-sizing: border-box;
@@ -16,7 +16,7 @@
             width: 100%;
             overflow-x: auto;
         }
-        /* --- USER LOGIN OVERLAY STYLES --- */
+        /* --- STRICT LOGIN OVERLAY STYLES (No signup, credentials only) --- */
         .user-login-overlay {
             position: fixed;
             top: 0;
@@ -102,18 +102,6 @@
             background: #f8fafc;
             padding: 8px;
             border-radius: 32px;
-        }
-        .signup-link {
-            margin-top: 16px;
-            font-size: 13px;
-        }
-        .signup-link a {
-            color: #2c6e9e;
-            text-decoration: none;
-            font-weight: 600;
-        }
-        .signup-link a:hover {
-            text-decoration: underline;
         }
         /* Main dashboard container (hidden until user logs in) */
         .dashboard-main-container {
@@ -582,14 +570,6 @@
         .data-table tr:hover td {
             background-color: #f8fafd;
         }
-        .highlight-match {
-            background-color: #ffecb3;
-            font-weight: 600;
-            border-radius: 12px;
-            padding: 0 3px;
-            color: #b45f06;
-            display: inline-block;
-        }
         .pagination {
             display: flex;
             justify-content: center;
@@ -671,20 +651,17 @@
 </head>
 <body>
 
-<!-- ==================== USER LOGIN OVERLAY ==================== -->
+<!-- ==================== STRICT CREDENTIALS LOGIN OVERLAY (NO SIGNUP) ==================== -->
 <div id="userLoginOverlay" class="user-login-overlay">
     <div class="user-login-card">
-        <h2>📊 Data Portal</h2>
-        <div class="user-login-sub">Sign in to access the CSV Dataset Dashboard</div>
+        <h2>📊 Secure Data Portal</h2>
+        <div class="user-login-sub">Enter your credentials to access the dataset dashboard</div>
         <input type="text" id="userLoginUsername" placeholder="Username" autocomplete="off">
         <input type="password" id="userLoginPassword" placeholder="Password">
         <button id="userLoginSubmitBtn" class="user-login-btn">🔐 Sign In</button>
         <div id="userLoginErrorMsg" class="user-login-error" style="display: none;"></div>
-        <div class="signup-link">
-            Don't have an account? <a href="#" id="signupRedirectLink">Create Account</a>
-        </div>
         <div class="demo-hint">
-            💡 Demo: user: <strong>admin</strong> / pass: <strong>admin123</strong>
+            💡 Demo credentials: <strong>admin</strong> / <strong>admin123</strong>
         </div>
     </div>
 </div>
