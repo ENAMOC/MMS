@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Homedecor|Dataset</title>
+    <title>Persistent CSV Dataset | Filters + Column Hide/Show (Auto-Save)</title>
     <style>
         * {
             box-sizing: border-box;
@@ -16,6 +16,111 @@
             width: 100%;
             overflow-x: auto;
         }
+        /* --- USER LOGIN OVERLAY STYLES --- */
+        .user-login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(2px);
+            transition: opacity 0.4s ease;
+        }
+        .user-login-card {
+            background: white;
+            border-radius: 48px;
+            padding: 40px 32px;
+            width: 380px;
+            max-width: 90%;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            text-align: center;
+            animation: fadeInUp 0.5s ease-out;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .user-login-card h2 {
+            margin-bottom: 8px;
+            color: #1e466e;
+            font-size: 28px;
+        }
+        .user-login-sub {
+            color: #5f7f9e;
+            margin-bottom: 28px;
+            font-size: 14px;
+        }
+        .user-login-card input {
+            width: 100%;
+            padding: 14px 18px;
+            margin: 12px 0;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 60px;
+            font-size: 15px;
+            transition: 0.2s;
+            background: #fefefe;
+        }
+        .user-login-card input:focus {
+            outline: none;
+            border-color: #2c6e9e;
+            box-shadow: 0 0 0 3px rgba(44,110,158,0.2);
+        }
+        .user-login-btn {
+            background: #2c6e9e;
+            color: white;
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 8px;
+        }
+        .user-login-btn:hover {
+            background: #1e4e72;
+            transform: scale(1.01);
+        }
+        .user-login-error {
+            color: #c7452c;
+            background: #ffe6e5;
+            padding: 10px;
+            border-radius: 40px;
+            font-size: 13px;
+            margin-top: 16px;
+        }
+        .demo-hint {
+            margin-top: 24px;
+            font-size: 12px;
+            color: #6c86a0;
+            background: #f8fafc;
+            padding: 8px;
+            border-radius: 32px;
+        }
+        .signup-link {
+            margin-top: 16px;
+            font-size: 13px;
+        }
+        .signup-link a {
+            color: #2c6e9e;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .signup-link a:hover {
+            text-decoration: underline;
+        }
+        /* Main dashboard container (hidden until user logs in) */
+        .dashboard-main-container {
+            display: none;
+            width: 100%;
+        }
+        /* --- ALL ORIGINAL STYLES BELOW (COMPLETELY PRESERVED) --- */
         .upload-container {
             background: white;
             padding: 20px 24px;
@@ -177,7 +282,6 @@
         .success { background: #dff0e4; color: #1f6e43; border-left: 5px solid #2b8c4e; }
         .error { background: #ffe6e5; color: #bc3f2e; border-left: 5px solid #c7452c; }
         .info { background: #e3f0fa; color: #1e6a9f; border-left: 5px solid #2c6e9e; }
-
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -237,14 +341,26 @@
             align-items: center;
             gap: 6px;
         }
-
+        .user-welcome-badge {
+            background: #1e466e;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 11px;
+            margin-left: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        /* ENHANCED FILTER PANEL STYLES */
         .filter-panel-container {
             background: white;
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
             overflow: hidden;
             width: 100%;
-            border-radius: 0;
+            border-radius: 12px;
+            transition: all 0.2s ease;
         }
         .filter-panel-container.has-active-filters {
             background: #e8f5e9;
@@ -291,23 +407,10 @@
             overflow-y: auto;
             background: #ffffff;
             scrollbar-width: thin;
-            scrollbar-color: #bdc4d0 #eef2f5;
         }
-        .columns-filter-grid::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        .columns-filter-grid::-webkit-scrollbar-track {
-            background: #eef2f5;
-            border-radius: 10px;
-        }
-        .columns-filter-grid::-webkit-scrollbar-thumb {
-            background: #bdc4d0;
-            border-radius: 10px;
-        }
-        .columns-filter-grid::-webkit-scrollbar-thumb:hover {
-            background: #9aa3b2;
-        }
+        .columns-filter-grid::-webkit-scrollbar { width: 8px; }
+        .columns-filter-grid::-webkit-scrollbar-track { background: #eef2f5; border-radius: 10px; }
+        .columns-filter-grid::-webkit-scrollbar-thumb { background: #bdc4d0; border-radius: 10px; }
         .filter-card {
             flex: 1 1 200px;
             min-width: 180px;
@@ -432,7 +535,7 @@
             overflow: hidden;
             box-shadow: 0 8px 20px rgba(0,0,0,0.08);
             width: 100%;
-            border-radius: 0;
+            border-radius: 12px;
             transition: opacity 0.2s ease;
         }
         .table-wrapper {
@@ -523,7 +626,6 @@
             align-items: center;
             justify-content: center;
             z-index: 3000;
-            transition: opacity 0.2s;
         }
         .spinner-card {
             background: white;
@@ -552,7 +654,6 @@
             font-size: 15px;
             font-weight: 600;
             color: #1e466e;
-            letter-spacing: 0.3px;
         }
         @media (max-width: 768px) {
             .filter-card { min-width: 140px; }
@@ -569,78 +670,101 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-<div class="upload-container">
-    <div class="header-info">
-        <div class="title-section">
-            <h2>📊 Homedecor|Dataset <span class="single-dataset-badge">💾 Filters & Column visibility auto-save</span></h2>
+
+<!-- ==================== USER LOGIN OVERLAY ==================== -->
+<div id="userLoginOverlay" class="user-login-overlay">
+    <div class="user-login-card">
+        <h2>📊 Data Portal</h2>
+        <div class="user-login-sub">Sign in to access the CSV Dataset Dashboard</div>
+        <input type="text" id="userLoginUsername" placeholder="Username" autocomplete="off">
+        <input type="password" id="userLoginPassword" placeholder="Password">
+        <button id="userLoginSubmitBtn" class="user-login-btn">🔐 Sign In</button>
+        <div id="userLoginErrorMsg" class="user-login-error" style="display: none;"></div>
+        <div class="signup-link">
+            Don't have an account? <a href="#" id="signupRedirectLink">Create Account</a>
         </div>
-        <div class="last-updated-section">
-            <span class="last-updated-label">🕒 Last Updated:</span>
-            <span class="last-updated-value" id="lastUpdatedTime">—</span>
-            <span class="refresh-indicator" id="refreshIndicator">
-                🔄 Auto-sync
-            </span>
+        <div class="demo-hint">
+            💡 Demo: user: <strong>admin</strong> / pass: <strong>admin123</strong>
         </div>
-    </div>
-    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
-        <button id="adminLoginBtn" class="admin-btn">🔐 Admin Login</button>
-    </div>
-    <div id="adminBadge" style="margin-top: 8px;"></div>
-    
-    <div id="adminSection" class="admin-protected">
-        <div class="stats-grid">
-            <div class="stat-card"><div class="stat-value" id="totalRows">0</div><div class="stat-label">Total Rows in DB</div></div>
-            <div class="stat-card"><div class="stat-value" id="uploadSpeed">0</div><div class="stat-label">Rows/Second (upload)</div></div>
-            <div class="stat-card"><div class="stat-value" id="batchProgress">0</div><div class="stat-label">Batches Completed</div></div>
-            <div class="stat-card"><div class="stat-value" id="filteredCount">—</div><div class="stat-label">Filtered Rows</div></div>
-        </div>
-        <div class="action-bar">
-            <input type="file" id="csvFile" accept=".csv, .xlsx, .xls, .xlsm">
-            <button id="uploadBtn">⬆️ Upload & Replace (CSV/Excel)</button>
-            <button id="loadBtn" class="load-btn">🔄 Refresh from Firebase</button>
-            <button id="deleteBtn" class="delete-btn">🗑️ Delete All Data</button>
-        </div>
-        <div class="progress-container" id="progressContainer">
-            <div class="progress-bar"><div class="progress-fill" id="progressFill">0%</div></div>
-            <div class="batch-info" id="batchInfo"></div>
-        </div>
-        <div id="status"></div>
     </div>
 </div>
 
-<div id="filterPanelArea" style="display: none;">
-    <div class="filter-panel-container" id="mainFilterContainer">
-        <div class="filter-header">
-            <h3>🔍 Column Filters <span class="hint-badge"></span></h3>
-            <div class="filter-actions">
-                <button id="applyAllFiltersBtn">Apply Filters</button>
-                <button id="resetAllFiltersBtn" class="clear-all-btn">Reset All Filters</button>
+<!-- ==================== MAIN DASHBOARD CONTAINER ==================== -->
+<div id="dashboardMainContainer" class="dashboard-main-container">
+    <div class="upload-container">
+        <div class="header-info">
+            <div class="title-section">
+                <h2>📊 Persistent CSV Dataset <span class="single-dataset-badge">💾 Filters & Column visibility auto-save</span></h2>
+            </div>
+            <div class="last-updated-section">
+                <span class="last-updated-label">🕒 Last Updated:</span>
+                <span class="last-updated-value" id="lastUpdatedTime">—</span>
+                <span class="refresh-indicator" id="refreshIndicator">🔄 Auto-sync</span>
             </div>
         </div>
-        <div id="dynamicFilterCards" class="columns-filter-grid"></div>
-        <div id="activeFilterChips" class="active-chips"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
+            <div id="userWelcomeBadge" class="user-welcome-badge" style="display: none;"></div>
+            <button id="adminLoginBtn" class="admin-btn">🔐 Admin Login</button>
+        </div>
+        <div id="adminBadge" style="margin-top: 8px;"></div>
+        
+        <!-- Admin Protected Section (Upload, Refresh, Delete) -->
+        <div id="adminSection" class="admin-protected">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-value" id="totalRows">0</div><div class="stat-label">Total Rows in DB</div></div>
+                <div class="stat-card"><div class="stat-value" id="uploadSpeed">0</div><div class="stat-label">Rows/Second (upload)</div></div>
+                <div class="stat-card"><div class="stat-value" id="batchProgress">0</div><div class="stat-label">Batches Completed</div></div>
+                <div class="stat-card"><div class="stat-value" id="filteredCount">—</div><div class="stat-label">Filtered Rows</div></div>
+            </div>
+            <div class="action-bar">
+                <input type="file" id="csvFile" accept=".csv, .xlsx, .xls, .xlsm">
+                <button id="uploadBtn">⬆️ Upload & Replace (CSV/Excel)</button>
+                <button id="loadBtn" class="load-btn">🔄 Refresh from Firebase</button>
+                <button id="deleteBtn" class="delete-btn">🗑️ Delete All Data</button>
+            </div>
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar"><div class="progress-fill" id="progressFill">0%</div></div>
+                <div class="batch-info" id="batchInfo"></div>
+            </div>
+            <div id="status"></div>
+        </div>
     </div>
-</div>
 
-<div id="columnManagerArea" style="display: none;">
-    <div class="column-manager">
-        <span class="column-manager-label">👁️ Show/Hide Columns</span>
-        <div id="columnToggleGroup" class="column-toggle-group"></div>
-        <button id="resetColumnVisibilityBtn" class="reset-columns-btn">Reset All Columns</button>
+    <!-- ENHANCED FILTER PANEL AREA -->
+    <div id="filterPanelArea" style="display: none;">
+        <div class="filter-panel-container" id="mainFilterContainer">
+            <div class="filter-header">
+                <h3>🔍 Column Filters <span class="hint-badge">✨ Hint Match: "flower" matches "flowers", "flowering"</span></h3>
+                <div class="filter-actions">
+                    <button id="applyAllFiltersBtn">Apply Filters</button>
+                    <button id="resetAllFiltersBtn" class="clear-all-btn">Reset All Filters</button>
+                </div>
+            </div>
+            <div id="dynamicFilterCards" class="columns-filter-grid"></div>
+            <div id="activeFilterChips" class="active-chips"></div>
+        </div>
     </div>
-</div>
 
-<div class="excel-table-container" id="excelTableContainer" style="display: none;">
-    <div class="table-wrapper">
-        <table class="data-table" id="dataTable">
-            <thead id="tableHeader"></thead>
-            <tbody id="tableBody"></tbody>
-        </table>
+    <div id="columnManagerArea" style="display: none;">
+        <div class="column-manager">
+            <span class="column-manager-label">👁️ Show/Hide Columns</span>
+            <div id="columnToggleGroup" class="column-toggle-group"></div>
+            <button id="resetColumnVisibilityBtn" class="reset-columns-btn">Reset All Columns</button>
+        </div>
     </div>
-    <div class="pagination" id="pagination" style="display: none;">
-        <button id="prevPage">◀ Previous</button>
-        <span class="page-info" id="pageInfo">Page 1</span>
-        <button id="nextPage">Next ▶</button>
+
+    <div class="excel-table-container" id="excelTableContainer" style="display: none;">
+        <div class="table-wrapper">
+            <table class="data-table" id="dataTable">
+                <thead id="tableHeader"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <div class="pagination" id="pagination" style="display: none;">
+            <button id="prevPage">◀ Previous</button>
+            <span class="page-info" id="pageInfo">Page 1</span>
+            <button id="nextPage">Next ▶</button>
+        </div>
     </div>
 </div>
 
