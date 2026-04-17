@@ -15,7 +15,7 @@ try {
     console.log("✅ Firebase ready");
 } catch(e) { console.warn(e); }
 
-// ==================== USER LOGIN SYSTEM ====================
+// ==================== STRICT CREDENTIALS LOGIN (NO SIGNUP) ====================
 const userLoginOverlay = document.getElementById('userLoginOverlay');
 const dashboardContainer = document.getElementById('dashboardMainContainer');
 const userLoginUsername = document.getElementById('userLoginUsername');
@@ -69,7 +69,7 @@ function showDashboardAfterLogin(user) {
     userWelcomeBadge.style.display = 'inline-flex';
     const logoutBtn = document.getElementById('userLogoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', () => { clearUserSession(); location.reload(); });
-    initializeDashboard();
+    initializeDashboard();  // will load data automatically
 }
 
 async function handleUserLogin() {
@@ -81,26 +81,7 @@ async function handleUserLogin() {
     catch (err) { userLoginError.style.display = 'block'; userLoginError.textContent = err.message; userLoginBtn.disabled = false; userLoginBtn.textContent = "🔐 Sign In"; }
 }
 
-document.getElementById('signupRedirectLink')?.addEventListener('click', (e) => { e.preventDefault(); window.location.href = 'signup.html'; });
-
-(function initUserLoginGate() {
-    const existingSession = checkExistingUserSession();
-    if (existingSession && database) {
-        userLoginOverlay.style.display = 'none'; dashboardContainer.style.display = 'block';
-        currentLoggedInUser = existingSession;
-        const displayName = existingSession.fullName || existingSession.username;
-        userWelcomeBadge.innerHTML = `👋 Welcome, ${escapeHtml(displayName)} | <button id="userLogoutBtn" style="background:none; border:none; color:white; cursor:pointer; margin-left:8px;">🚪 Logout</button>`;
-        userWelcomeBadge.style.display = 'inline-flex';
-        const logoutBtn = document.getElementById('userLogoutBtn');
-        if (logoutBtn) logoutBtn.addEventListener('click', () => { clearUserSession(); location.reload(); });
-        initializeDashboard();
-    } else { userLoginOverlay.style.display = 'flex'; dashboardContainer.style.display = 'none'; }
-    userLoginBtn.addEventListener('click', handleUserLogin);
-    userLoginUsername.addEventListener('keypress', (e) => { if(e.key === 'Enter') handleUserLogin(); });
-    userLoginPassword.addEventListener('keypress', (e) => { if(e.key === 'Enter') handleUserLogin(); });
-})();
-
-// ==================== DASHBOARD CODE WITH FULL FILTER FUNCTIONALITY ====================
+// ==================== DASHBOARD CODE WITH AUTO-LOAD ON REFRESH ====================
 const csvFileInput = document.getElementById('csvFile');
 const uploadBtn = document.getElementById('uploadBtn');
 const loadBtn = document.getElementById('loadBtn');
@@ -161,7 +142,6 @@ function checkExistingAdminSession() {
                 const logoutBtn = document.getElementById('logoutBtn');
                 if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
                 showStatus(`Welcome back, ${session.username}!`, "success");
-                if (rawDataset.length === 0 && database) loadLatestData();
             } else { localStorage.removeItem('csv_admin_session'); }
         } catch(e) { localStorage.removeItem('csv_admin_session'); }
     }
@@ -198,6 +178,7 @@ function showAdminModal() {
             const logoutBtn = document.getElementById('logoutBtn'); if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
             showStatus(`Admin access granted. Welcome ${adminUser.username}!`, "success");
             modal.remove();
+            // Reload data if needed
             if (rawDataset.length === 0 && database) loadLatestData();
         } catch (err) { errorDiv.textContent = err.message; }
         finally { loginBtnModal.disabled = false; loginBtnModal.textContent = "Login"; }
@@ -349,7 +330,7 @@ async function loadLatestData() {
     await withSpinner((async () => {
         if(loadBtn) loadBtn.disabled = true;
         const snapshot = await database.ref('csvUploads').once('value');
-        if (!snapshot.exists()) { tableBody.innerHTML = `<tr><td colspan="100">📭 No data. Upload a CSV (Admin only).</td></tr>`; rawDataset = []; filteredSortedData = []; totalRowsElem.innerText = '0'; filteredCountSpan.innerText = '0'; excelContainer.style.display = 'none'; filterPanelArea.style.display = 'none'; columnManagerArea.style.display = 'none'; updateLastUpdatedDisplay(null); return; }
+        if (!snapshot.exists()) { tableBody.innerHTML = `<tr><td colspan="100" class="empty-placeholder">📭 No data. Upload a CSV (Admin only).</td></tr>`; rawDataset = []; filteredSortedData = []; totalRowsElem.innerText = '0'; filteredCountSpan.innerText = '0'; excelContainer.style.display = 'none'; filterPanelArea.style.display = 'none'; columnManagerArea.style.display = 'none'; updateLastUpdatedDisplay(null); return; }
         let latestUpload = null;
         snapshot.forEach(child => { const val = child.val(); if (val.metadata && val.metadata.completed) { if (!latestUpload || val.metadata.timestamp > latestUpload.metadata.timestamp) latestUpload = { id: child.key, metadata: val.metadata, batches: val.batches || {} }; } });
         if (!latestUpload) throw new Error("No completed dataset");
@@ -419,4 +400,32 @@ if(loadBtn) loadBtn.addEventListener('click', loadLatestData);
 document.getElementById('prevPage')?.addEventListener('click', () => { if(currentPage>1){ currentPage--; renderTable(); } });
 document.getElementById('nextPage')?.addEventListener('click', () => { const total=Math.ceil(filteredSortedData.length/rowsPerPage); if(currentPage<total){ currentPage++; renderTable(); } });
 
-function initializeDashboard() { checkExistingAdminSession(); if(database) loadLatestData(); else showStatus("Firebase issue","error"); }
+function initializeDashboard() { 
+    checkExistingAdminSession(); 
+    if(database) loadLatestData();   // <-- auto-loads table on refresh or after login
+    else showStatus("Firebase issue","error"); 
+}
+
+// ========== INITIAL PAGE LOAD: RESTORE SESSION AND AUTO-LOAD TABLE ==========
+(function initOnLoad() {
+    const existingSession = checkExistingUserSession();
+    if (existingSession && database) {
+        // User session found -> show dashboard and load data immediately
+        userLoginOverlay.style.display = 'none';
+        dashboardContainer.style.display = 'block';
+        currentLoggedInUser = existingSession;
+        const displayName = existingSession.fullName || existingSession.username;
+        userWelcomeBadge.innerHTML = `👋 Welcome, ${escapeHtml(displayName)} | <button id="userLogoutBtn" style="background:none; border:none; color:white; cursor:pointer; margin-left:8px;">🚪 Logout</button>`;
+        userWelcomeBadge.style.display = 'inline-flex';
+        const logoutBtn = document.getElementById('userLogoutBtn');
+        if (logoutBtn) logoutBtn.addEventListener('click', () => { clearUserSession(); location.reload(); });
+        initializeDashboard();  // this calls loadLatestData -> table auto appears
+    } else {
+        userLoginOverlay.style.display = 'flex';
+        dashboardContainer.style.display = 'none';
+    }
+    // Attach login event listener
+    userLoginBtn.addEventListener('click', handleUserLogin);
+    userLoginUsername.addEventListener('keypress', (e) => { if(e.key === 'Enter') handleUserLogin(); });
+    userLoginPassword.addEventListener('keypress', (e) => { if(e.key === 'Enter') handleUserLogin(); });
+})();
