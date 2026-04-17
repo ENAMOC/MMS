@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Secure CSV Dataset | Credentials-Only Access</title>
+    <title>Secure CSV Dataset | Auto-Load on Refresh</title>
     <style>
         * {
             box-sizing: border-box;
@@ -103,12 +103,12 @@
             padding: 8px;
             border-radius: 32px;
         }
-        /* Main dashboard container (hidden until user logs in) */
+        /* Main dashboard container */
         .dashboard-main-container {
             display: none;
             width: 100%;
         }
-        /* --- ALL ORIGINAL STYLES BELOW (COMPLETELY PRESERVED) --- */
+        /* --- ALL ORIGINAL STYLES (PRESERVED) --- */
         .upload-container {
             background: white;
             padding: 20px 24px;
@@ -648,10 +648,12 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <!-- SheetJS for Excel parsing -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <!-- External application script -->
+    <script src="script.js"></script>
 </head>
 <body>
 
-<!-- ==================== STRICT CREDENTIALS LOGIN OVERLAY (NO SIGNUP) ==================== -->
+<!-- ==================== STRICT CREDENTIALS LOGIN OVERLAY ==================== -->
 <div id="userLoginOverlay" class="user-login-overlay">
     <div class="user-login-card">
         <h2>📊 Secure Data Portal</h2>
@@ -671,7 +673,7 @@
     <div class="upload-container">
         <div class="header-info">
             <div class="title-section">
-                <h2>📊 Persistent CSV Dataset <span class="single-dataset-badge">💾 Filters & Column visibility auto-save</span></h2>
+                <h2>📊 Persistent CSV Dataset <span class="single-dataset-badge">💾 Auto‑load on refresh</span></h2>
             </div>
             <div class="last-updated-section">
                 <span class="last-updated-label">🕒 Last Updated:</span>
@@ -744,7 +746,5 @@
         </div>
     </div>
 </div>
-
-<script src="script.js"></script>
 </body>
 </html>
