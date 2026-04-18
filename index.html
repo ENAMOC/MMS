@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>Secure CSV Dataset | Auto-Load on Refresh</title>
     <style>
         * {
@@ -340,7 +340,7 @@
             align-items: center;
             gap: 6px;
         }
-        /* ENHANCED FILTER PANEL STYLES */
+        /* ENHANCED FILTER PANEL STYLES + MOBILE RESPONSIVE OVERRIDES */
         .filter-panel-container {
             background: white;
             margin-bottom: 20px;
@@ -489,7 +489,7 @@
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            max-width: 80%;
+            max-width: 100%;
         }
         .column-toggle-btn {
             background: #f0f2f5;
@@ -635,12 +635,115 @@
             font-weight: 600;
             color: #1e466e;
         }
+        /* ========== MOBILE RESPONSIVE ENHANCEMENTS FOR FILTER SECTION ========== */
         @media (max-width: 768px) {
             .filter-card { min-width: 140px; }
             .stat-value { font-size: 24px; }
             .data-table th, .data-table td { padding: 8px 6px; font-size: 11px; }
             .last-updated-section { font-size: 10px; padding: 4px 12px; }
             .spinner-card { padding: 20px 28px; }
+            .filter-header { flex-direction: column; align-items: stretch; }
+            .filter-actions { justify-content: stretch; }
+            .filter-actions button { flex: 1; text-align: center; }
+            .columns-filter-grid { padding: 12px; gap: 12px; max-height: 360px; }
+            .filter-card { flex: 1 1 100%; min-width: auto; }
+            .filter-card input { font-size: 14px; padding: 10px 14px; }
+            .filter-stats { font-size: 11px; }
+            .multi-select-trigger { padding: 4px 8px; }
+            .column-manager { flex-direction: column; align-items: flex-start; }
+            .column-toggle-group { max-width: 100%; justify-content: flex-start; }
+            .column-toggle-btn { padding: 6px 14px; font-size: 12px; }
+            .active-chips { padding: 10px 16px; gap: 8px; }
+            .filter-chip { font-size: 12px; padding: 6px 12px; }
+        }
+        @media (max-width: 480px) {
+            .filter-header h3 { font-size: 13px; }
+            .hint-badge { font-size: 9px; }
+            .columns-filter-grid { max-height: 400px; }
+            .filter-card { padding: 8px 10px; }
+            .filter-card label { font-size: 11px; white-space: normal; word-break: break-word; }
+            .column-toggle-btn { font-size: 10px; padding: 5px 10px; }
+            .action-bar button, .action-bar input { width: 100%; text-align: center; }
+            .stats-grid .stat-card { min-width: 120px; }
+        }
+        .mobile-filter-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+        }
+        .mobile-filter-modal-card {
+            background: white;
+            border-radius: 32px;
+            width: 90%;
+            max-width: 360px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.3);
+            animation: fadeScale 0.2s ease;
+        }
+        @keyframes fadeScale {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .mobile-filter-header {
+            padding: 20px 20px 12px;
+            font-weight: 700;
+            font-size: 18px;
+            border-bottom: 1px solid #eef2f5;
+            color: #1e466e;
+        }
+        .mobile-filter-search {
+            padding: 12px 20px;
+            border-bottom: 1px solid #eef2f5;
+        }
+        .mobile-filter-search input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 40px;
+            border: 1px solid #cbd5e1;
+            font-size: 14px;
+        }
+        .mobile-filter-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 20px;
+            max-height: 50vh;
+        }
+        .mobile-filter-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f2f5;
+        }
+        .mobile-filter-item input {
+            width: 20px;
+            height: 20px;
+        }
+        .mobile-filter-item span {
+            font-size: 14px;
+            color: #1f3b4c;
+            word-break: break-word;
+        }
+        .mobile-filter-buttons {
+            padding: 16px 20px 24px;
+            display: flex;
+            gap: 12px;
+            border-top: 1px solid #eef2f5;
+        }
+        .mobile-filter-buttons button {
+            flex: 1;
+            padding: 12px;
+            font-size: 14px;
         }
     </style>
     <!-- Firebase SDKs -->
@@ -648,6 +751,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <!-- SheetJS for Excel parsing -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <!-- External main script -->
+    <script src="script.js" defer></script>
 </head>
 <body>
 
@@ -661,7 +766,7 @@
         <button id="userLoginSubmitBtn" class="user-login-btn">🔐 Sign In</button>
         <div id="userLoginErrorMsg" class="user-login-error" style="display: none;"></div>
         <div class="demo-hint">
-
+            💡 Demo credentials: <strong>admin</strong> / <strong>admin123</strong>
         </div>
     </div>
 </div>
@@ -685,7 +790,7 @@
         </div>
         <div id="adminBadge" style="margin-top: 8px;"></div>
         
-        <!-- Admin Protected Section (Upload, Refresh, Delete) -->
+        <!-- Admin Protected Section -->
         <div id="adminSection" class="admin-protected">
             <div class="stats-grid">
                 <div class="stat-card"><div class="stat-value" id="totalRows">0</div><div class="stat-label">Total Rows in DB</div></div>
@@ -744,7 +849,5 @@
         </div>
     </div>
 </div>
-
-<script src="script.js"></script>
 </body>
 </html>
