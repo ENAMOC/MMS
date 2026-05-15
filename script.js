@@ -1,13 +1,15 @@
 // ==================== FIREBASE CONFIG ====================
 const firebaseConfig = {
-    apiKey: "AIzaSyBgQ-NRH_UFKwEt0PybJ3y2zKGvRSqvLoU",
-    authDomain: "portfolio-70f03.firebaseapp.com",
-    databaseURL: "https://portfolio-70f03-default-rtdb.firebaseio.com",
-    projectId: "portfolio-70f03",
-    storageBucket: "portfolio-70f03.firebasestorage.app",
-    messagingSenderId: "815368927704",
-    appId: "1:815368927704:web:119b288294c5b26d2e1aad"
+    apiKey: "AIzaSyAbEQB9kQUAqS0eAlNGUx4Al_CsrhZ-Y58",
+    authDomain: "mmsdata-44117.firebaseapp.com",
+    databaseURL: "https://mmsdata-44117-default-rtdb.firebaseio.com",
+    projectId: "mmsdata-44117",
+    storageBucket: "mmsdata-44117.firebasestorage.app",
+    messagingSenderId: "525548358076",
+    appId: "1:525548358076:web:55375641f966d7966083b9",
+    measurementId: "G-85BC57T8R5"
 };
+
 
 let database;
 try {
