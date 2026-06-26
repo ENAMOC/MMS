@@ -10,33 +10,13 @@ const firebaseConfig = {
     measurementId: "G-85BC57T8R5"
 };
 
+
 let database;
 try {
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     database = firebase.database();
     console.log("✅ Firebase ready");
 } catch(e) { console.warn(e); }
-
-// ==================== AUTO-CREATE DEFAULT ADMIN ====================
-async function ensureDefaultAdmin() {
-    if (!database) return;
-    try {
-        const snapshot = await database.ref('adminUsers').once('value');
-        if (!snapshot.exists()) {
-            await database.ref('adminUsers').push({
-                username: 'admin',
-                password: 'admin123',
-                fullName: 'Administrator',
-                role: 'admin',
-                email: 'admin@example.com'
-            });
-            console.log('✅ Default admin created (admin / admin123)');
-        }
-    } catch (e) {
-        console.warn('Could not check/create admin:', e);
-    }
-}
-if (database) ensureDefaultAdmin();
 
 // ==================== STRICT CREDENTIALS LOGIN ====================
 const userLoginOverlay = document.getElementById('userLoginOverlay');
@@ -452,7 +432,6 @@ async function loadLatestData() {
 }
 
 async function replaceWithNewData(data, originalHeaders, fileName, onProgress) { 
-    if (!database) throw new Error("Firebase not connected");
     await database.ref('csvUploads').remove();
     const uploadId = 'current_dataset_' + Date.now(), uploadRef = database.ref('csvUploads/' + uploadId), batchSize = 1000, totalBatches = Math.ceil(data.length / batchSize);
     const safeHeaders = originalHeaders.map(h => sanitizeFirebaseKey(h));
@@ -467,162 +446,29 @@ async function replaceWithNewData(data, originalHeaders, fileName, onProgress) {
     await uploadRef.child('metadata').update({ completed: true });
 }
 
-// ==================== IMPROVED FILE PARSER (using Papa Parse) ====================
 async function parseFileToObjects(file) {
     const fileName = file.name.toLowerCase();
     if (fileName.endsWith('.csv')) {
-        // Use Papa Parse if available, otherwise fallback to a manual parser
-        if (typeof Papa !== 'undefined') {
-            return new Promise((resolve, reject) => {
-                Papa.parse(file, {
-                    header: true,
-                    skipEmptyLines: true,
-                    trimHeaders: true,
-                    complete: (results) => {
-                        if (results.errors.length) {
-                            reject(new Error('CSV parsing error: ' + results.errors[0].message));
-                        } else {
-                            const headers = results.meta.fields || [];
-                            const data = results.data.map(row => {
-                                const obj = {};
-                                headers.forEach(h => obj[h] = row[h] !== undefined ? String(row[h]) : '');
-                                return obj;
-                            });
-                            resolve({ headers, data });
-                        }
-                    },
-                    error: (err) => reject(err)
-                });
-            });
-        } else {
-            // Fallback manual parser (handles quotes and commas)
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    try {
-                        const text = ev.target.result;
-                        const rows = parseCSVManually(text);
-                        if (!rows.length) throw new Error('Empty CSV');
-                        const headers = rows[0].map(h => h.trim());
-                        const data = [];
-                        for (let i = 1; i < rows.length; i++) {
-                            const row = rows[i];
-                            const obj = {};
-                            headers.forEach((h, idx) => obj[h] = row[idx] || '');
-                            data.push(obj);
-                        }
-                        resolve({ headers, data });
-                    } catch (err) { reject(err); }
-                };
-                reader.onerror = () => reject('Failed to read CSV');
-                reader.readAsText(file, 'UTF-8');
-            });
-        }
-    } else {
-        // Excel parsing using XLSX
-        const ab = await file.arrayBuffer();
-        const workbook = XLSX.read(ab);
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-        const headers = Object.keys(jsonData[0] || {});
-        const data = jsonData.map(row => {
-            const obj = {};
-            headers.forEach(h => obj[h] = row[h] !== undefined ? String(row[h]) : '');
-            return obj;
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const text = ev.target.result, lines = text.split(/\r?\n/), headers = lines[0].split(',').map(h => h.trim()), data = [];
+                for(let i = 1; i < lines.length; i++) { if(!lines[i].trim()) continue; const values = lines[i].match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g) || []; const obj = {}; headers.forEach((h, idx) => obj[h] = values[idx] ? values[idx].replace(/^"|"$/g,'') : ""); data.push(obj); }
+                resolve({ headers, data });
+            }; reader.onerror = () => reject("Failed to read CSV"); reader.readAsText(file, "UTF-8");
         });
-        return { headers, data };
-    }
+    } else { const ab = await file.arrayBuffer(); const workbook = XLSX.read(ab); const sheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: "" }); const headers = Object.keys(jsonData[0] || {}); const data = jsonData.map(row => { const obj = {}; headers.forEach(h => obj[h] = row[h] !== undefined ? String(row[h]) : ""); return obj; }); return { headers, data }; }
 }
 
-// Manual CSV parser (fallback if Papa Parse is not loaded)
-function parseCSVManually(text) {
-    const rows = [];
-    let currentRow = [];
-    let currentField = '';
-    let insideQuotes = false;
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (insideQuotes) {
-            if (ch === '"' && text[i+1] === '"') {
-                currentField += '"';
-                i++;
-            } else if (ch === '"') {
-                insideQuotes = false;
-            } else {
-                currentField += ch;
-            }
-        } else {
-            if (ch === '"') {
-                insideQuotes = true;
-            } else if (ch === ',') {
-                currentRow.push(currentField.trim());
-                currentField = '';
-            } else if (ch === '\n') {
-                currentRow.push(currentField.trim());
-                rows.push(currentRow);
-                currentRow = [];
-                currentField = '';
-            } else if (ch === '\r') {
-                // skip carriage return
-            } else {
-                currentField += ch;
-            }
-        }
-    }
-    if (currentField || currentRow.length) {
-        currentRow.push(currentField.trim());
-        rows.push(currentRow);
-    }
-    return rows;
-}
+if(uploadBtn) uploadBtn.addEventListener('click', async () => {
+    if(!isAdminLoggedIn) { showStatus("Admin access required", "error"); return; }
+    const file = csvFileInput.files[0]; if(!file) return showStatus("Select CSV or Excel file", "error");
+    uploadBtn.disabled=true; progressContainer.style.display='block';
+    try { const { headers, data } = await parseFileToObjects(file); if (!data.length) throw new Error("No data rows found"); await withSpinner(replaceWithNewData(data, headers, file.name, (prog) => { progressFill.style.width = `${prog.percentage}%`; progressFill.textContent = `${Math.floor(prog.percentage)}%`; }), "Uploading..."); showStatus(`Upload complete! ${data.length.toLocaleString()} rows`, "success"); await loadLatestData(); } 
+    catch(err) { showStatus("Upload error: "+err.message, "error"); } 
+    finally { uploadBtn.disabled=false; progressContainer.style.display='none'; progressFill.style.width='0%'; csvFileInput.value = ''; }
+});
 
-// ==================== UPLOAD HANDLER (with error logging) ====================
-if(uploadBtn) {
-    uploadBtn.addEventListener('click', async () => {
-        if(!isAdminLoggedIn) {
-            showStatus("Admin access required", "error");
-            return;
-        }
-        if (!database) {
-            showStatus("Firebase not connected", "error");
-            return;
-        }
-        const file = csvFileInput.files[0];
-        if(!file) {
-            showStatus("Select CSV or Excel file", "error");
-            return;
-        }
-
-        uploadBtn.disabled = true;
-        progressContainer.style.display = 'block';
-
-        try {
-            const { headers, data } = await parseFileToObjects(file);
-            if (!data.length) throw new Error("No data rows found");
-
-            await withSpinner(
-                replaceWithNewData(data, headers, file.name, (prog) => {
-                    progressFill.style.width = `${prog.percentage}%`;
-                    progressFill.textContent = `${Math.floor(prog.percentage)}%`;
-                }),
-                "Uploading..."
-            );
-
-            showStatus(`✅ Upload complete! ${data.length.toLocaleString()} rows`, "success");
-            await loadLatestData();
-        } catch (err) {
-            console.error("Upload error:", err);   // <-- important for debugging
-            showStatus("Upload error: " + err.message, "error");
-        } finally {
-            uploadBtn.disabled = false;
-            progressContainer.style.display = 'none';
-            progressFill.style.width = '0%';
-            csvFileInput.value = '';
-        }
-    });
-}
-
-// ==================== DELETE, FILTERS, PAGINATION etc. (unchanged) ====================
 if(deleteBtn) deleteBtn.addEventListener('click', async () => {
     if(!isAdminLoggedIn) { showStatus("Admin access required", "error"); return; }
     if(!confirm("Delete ALL data?")) return;
