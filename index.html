@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover" />
     <title>Secure CSV Dataset | Auto-Load on Refresh</title>
+
+    <!-- ===== STYLES ===== -->
     <style>
+        /* ----- RESET & BASE ----- */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -16,7 +19,8 @@
             width: 100%;
             overflow-x: auto;
         }
-        /* --- STRICT LOGIN OVERLAY STYLES (No signup, credentials only) --- */
+
+        /* ----- LOGIN OVERLAY ----- */
         .user-login-overlay {
             position: fixed;
             top: 0;
@@ -37,13 +41,19 @@
             padding: 40px 32px;
             width: 380px;
             max-width: 90%;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
             text-align: center;
             animation: fadeInUp 0.5s ease-out;
         }
         @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         .user-login-card h2 {
             margin-bottom: 8px;
@@ -68,7 +78,7 @@
         .user-login-card input:focus {
             outline: none;
             border-color: #2c6e9e;
-            box-shadow: 0 0 0 3px rgba(44,110,158,0.2);
+            box-shadow: 0 0 0 3px rgba(44, 110, 158, 0.2);
         }
         .user-login-btn {
             background: #2c6e9e;
@@ -103,17 +113,19 @@
             padding: 8px;
             border-radius: 32px;
         }
-        /* Main dashboard container */
+
+        /* ----- DASHBOARD CONTAINER ----- */
         .dashboard-main-container {
             display: none;
             width: 100%;
         }
-        /* --- ALL ORIGINAL STYLES (PRESERVED) --- */
+
+        /* ----- UPLOAD CONTAINER ----- */
         .upload-container {
             background: white;
             padding: 20px 24px;
             margin-bottom: 24px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             width: 100%;
         }
         .header-info {
@@ -129,6 +141,17 @@
         .title-section h2 {
             margin: 0;
             font-size: 1.5rem;
+        }
+        .single-dataset-badge {
+            background: #e8f0fe;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 11px;
+            color: #1e466e;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 12px;
         }
         .last-updated-section {
             background: #e8f0fe;
@@ -160,12 +183,15 @@
             font-size: 11px;
             color: #1f6e43;
         }
+
+        /* ----- ADMIN SECTION ----- */
         .admin-protected {
             display: none;
         }
         .admin-protected.visible {
             display: block;
         }
+
         .stats-grid {
             display: flex;
             gap: 20px;
@@ -178,7 +204,8 @@
             padding: 16px;
             border-radius: 20px;
             text-align: center;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            min-width: 120px;
         }
         .stat-value {
             font-size: 32px;
@@ -192,6 +219,7 @@
             margin-top: 6px;
             font-weight: 500;
         }
+
         .action-bar {
             display: flex;
             flex-wrap: wrap;
@@ -204,6 +232,7 @@
             border: 1px solid #ccc;
             border-radius: 40px;
             background: #fafafa;
+            flex: 1 1 200px;
         }
         button {
             background-color: #2c6e9e;
@@ -215,6 +244,7 @@
             font-weight: 600;
             transition: 0.2s;
             font-size: 13px;
+            white-space: nowrap;
         }
         button:hover:not(:disabled) {
             background-color: #1e4e72;
@@ -223,6 +253,7 @@
         button:disabled {
             background-color: #b0c4de;
             cursor: not-allowed;
+            transform: none;
         }
         .admin-btn {
             background-color: #5a3e2b;
@@ -231,9 +262,16 @@
         .admin-btn:hover {
             background-color: #3e2a1c;
         }
-        .load-btn { background-color: #2c6e9e; }
-        .delete-btn { background-color: #c7452c; }
-        .delete-btn:hover:not(:disabled) { background-color: #a2341e; }
+        .load-btn {
+            background-color: #2c6e9e;
+        }
+        .delete-btn {
+            background-color: #c7452c;
+        }
+        .delete-btn:hover:not(:disabled) {
+            background-color: #a2341e;
+        }
+
         .progress-container {
             margin: 18px 0;
             display: none;
@@ -261,63 +299,30 @@
             margin-top: 6px;
             color: #2c5a7a;
         }
+
         .status {
             margin: 12px 0;
             padding: 12px 16px;
             border-radius: 40px;
             font-size: 14px;
         }
-        .success { background: #dff0e4; color: #1f6e43; border-left: 5px solid #2b8c4e; }
-        .error { background: #ffe6e5; color: #bc3f2e; border-left: 5px solid #c7452c; }
-        .info { background: #e3f0fa; color: #1e6a9f; border-left: 5px solid #2c6e9e; }
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            backdrop-filter: blur(3px);
+        .success {
+            background: #dff0e4;
+            color: #1f6e43;
+            border-left: 5px solid #2b8c4e;
         }
-        .modal-content {
-            background: white;
-            border-radius: 28px;
-            padding: 28px 32px;
-            width: 340px;
-            max-width: 90%;
-            box-shadow: 0 20px 35px rgba(0,0,0,0.3);
-            text-align: center;
+        .error {
+            background: #ffe6e5;
+            color: #bc3f2e;
+            border-left: 5px solid #c7452c;
         }
-        .modal-content h3 {
-            margin-bottom: 20px;
-            color: #1e466e;
+        .info {
+            background: #e3f0fa;
+            color: #1e6a9f;
+            border-left: 5px solid #2c6e9e;
         }
-        .modal-content input {
-            width: 100%;
-            padding: 12px 16px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 40px;
-            font-size: 14px;
-        }
-        .modal-buttons {
-            display: flex;
-            gap: 12px;
-            margin-top: 20px;
-            justify-content: center;
-        }
-        .modal-buttons button {
-            padding: 8px 20px;
-        }
-        .error-msg {
-            color: #c7452c;
-            font-size: 12px;
-            margin-top: 8px;
-        }
+
+        /* ----- BADGES ----- */
         .admin-logged-badge {
             background: #2e7d32;
             color: white;
@@ -340,11 +345,12 @@
             align-items: center;
             gap: 6px;
         }
-        /* ENHANCED FILTER PANEL STYLES + MOBILE RESPONSIVE OVERRIDES */
+
+        /* ----- FILTER PANEL ----- */
         .filter-panel-container {
             background: white;
             margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
             overflow: hidden;
             width: 100%;
             border-radius: 12px;
@@ -396,9 +402,17 @@
             background: #ffffff;
             scrollbar-width: thin;
         }
-        .columns-filter-grid::-webkit-scrollbar { width: 8px; }
-        .columns-filter-grid::-webkit-scrollbar-track { background: #eef2f5; border-radius: 10px; }
-        .columns-filter-grid::-webkit-scrollbar-thumb { background: #bdc4d0; border-radius: 10px; }
+        .columns-filter-grid::-webkit-scrollbar {
+            width: 8px;
+        }
+        .columns-filter-grid::-webkit-scrollbar-track {
+            background: #eef2f5;
+            border-radius: 10px;
+        }
+        .columns-filter-grid::-webkit-scrollbar-thumb {
+            background: #bdc4d0;
+            border-radius: 10px;
+        }
         .filter-card {
             flex: 1 1 200px;
             min-width: 180px;
@@ -411,7 +425,7 @@
         .filter-card.has-column-filter {
             background: #d9f0da;
             border-color: #81c784;
-            box-shadow: 0 2px 6px rgba(46,125,50,0.15);
+            box-shadow: 0 2px 6px rgba(46, 125, 50, 0.15);
         }
         .filter-card label {
             font-size: 12px;
@@ -468,6 +482,8 @@
             padding: 0 4px;
             font-size: 14px;
         }
+
+        /* ----- COLUMN MANAGER ----- */
         .column-manager {
             background: white;
             padding: 10px 20px;
@@ -518,10 +534,12 @@
             padding: 4px 14px;
             font-size: 11px;
         }
+
+        /* ----- TABLE ----- */
         .excel-table-container {
             background: white;
             overflow: hidden;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
             width: 100%;
             border-radius: 12px;
             transition: opacity 0.2s ease;
@@ -570,6 +588,13 @@
         .data-table tr:hover td {
             background-color: #f8fafd;
         }
+        .empty-placeholder {
+            text-align: center;
+            padding: 50px;
+            color: #6c86a0;
+        }
+
+        /* ----- PAGINATION ----- */
         .pagination {
             display: flex;
             justify-content: center;
@@ -578,29 +603,65 @@
             background: white;
             border-top: 1px solid #e2e8f0;
         }
-        .empty-placeholder {
-            text-align: center;
-            padding: 50px;
-            color: #6c86a0;
-        }
-        .single-dataset-badge {
-            background: #e8f0fe;
-            padding: 4px 12px;
-            border-radius: 30px;
-            font-size: 11px;
-            color: #1e466e;
-            display: inline-flex;
+
+        /* ----- MODAL ----- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
             align-items: center;
-            gap: 6px;
-            margin-left: 12px;
+            justify-content: center;
+            z-index: 2000;
+            backdrop-filter: blur(3px);
         }
+        .modal-content {
+            background: white;
+            border-radius: 28px;
+            padding: 28px 32px;
+            width: 340px;
+            max-width: 90%;
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        .modal-content h3 {
+            margin-bottom: 20px;
+            color: #1e466e;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 12px 16px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 40px;
+            font-size: 14px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+        .modal-buttons button {
+            padding: 8px 20px;
+        }
+        .error-msg {
+            color: #c7452c;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        /* ----- SPINNER ----- */
         .global-spinner-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.4);
+            background: rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(3px);
             display: flex;
             align-items: center;
@@ -612,7 +673,7 @@
             border-radius: 32px;
             padding: 28px 38px;
             text-align: center;
-            box-shadow: 0 20px 35px rgba(0,0,0,0.25);
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.25);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -627,52 +688,27 @@
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
         }
         .spinner-text {
             font-size: 15px;
             font-weight: 600;
             color: #1e466e;
         }
-        /* ========== MOBILE RESPONSIVE ENHANCEMENTS FOR FILTER SECTION ========== */
-        @media (max-width: 768px) {
-            .filter-card { min-width: 140px; }
-            .stat-value { font-size: 24px; }
-            .data-table th, .data-table td { padding: 8px 6px; font-size: 11px; }
-            .last-updated-section { font-size: 10px; padding: 4px 12px; }
-            .spinner-card { padding: 20px 28px; }
-            .filter-header { flex-direction: column; align-items: stretch; }
-            .filter-actions { justify-content: stretch; }
-            .filter-actions button { flex: 1; text-align: center; }
-            .columns-filter-grid { padding: 12px; gap: 12px; max-height: 360px; }
-            .filter-card { flex: 1 1 100%; min-width: auto; }
-            .filter-card input { font-size: 14px; padding: 10px 14px; }
-            .filter-stats { font-size: 11px; }
-            .multi-select-trigger { padding: 4px 8px; }
-            .column-manager { flex-direction: column; align-items: flex-start; }
-            .column-toggle-group { max-width: 100%; justify-content: flex-start; }
-            .column-toggle-btn { padding: 6px 14px; font-size: 12px; }
-            .active-chips { padding: 10px 16px; gap: 8px; }
-            .filter-chip { font-size: 12px; padding: 6px 12px; }
-        }
-        @media (max-width: 480px) {
-            .filter-header h3 { font-size: 13px; }
-            .hint-badge { font-size: 9px; }
-            .columns-filter-grid { max-height: 400px; }
-            .filter-card { padding: 8px 10px; }
-            .filter-card label { font-size: 11px; white-space: normal; word-break: break-word; }
-            .column-toggle-btn { font-size: 10px; padding: 5px 10px; }
-            .action-bar button, .action-bar input { width: 100%; text-align: center; }
-            .stats-grid .stat-card { min-width: 120px; }
-        }
+
+        /* ----- MOBILE FILTER MODAL ----- */
         .mobile-filter-modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(4px);
             display: flex;
             align-items: center;
@@ -687,12 +723,18 @@
             max-height: 85vh;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 25px 40px rgba(0,0,0,0.3);
+            box-shadow: 0 25px 40px rgba(0, 0, 0, 0.3);
             animation: fadeScale 0.2s ease;
         }
         @keyframes fadeScale {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
         .mobile-filter-header {
             padding: 20px 20px 12px;
@@ -745,109 +787,1624 @@
             padding: 12px;
             font-size: 14px;
         }
+
+        /* ----- RESPONSIVE ----- */
+        @media (max-width: 768px) {
+            .filter-card {
+                min-width: 140px;
+            }
+            .stat-value {
+                font-size: 24px;
+            }
+            .data-table th,
+            .data-table td {
+                padding: 8px 6px;
+                font-size: 11px;
+            }
+            .last-updated-section {
+                font-size: 10px;
+                padding: 4px 12px;
+            }
+            .spinner-card {
+                padding: 20px 28px;
+            }
+            .filter-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-actions {
+                justify-content: stretch;
+            }
+            .filter-actions button {
+                flex: 1;
+                text-align: center;
+            }
+            .columns-filter-grid {
+                padding: 12px;
+                gap: 12px;
+                max-height: 360px;
+            }
+            .filter-card {
+                flex: 1 1 100%;
+                min-width: auto;
+            }
+            .filter-card input {
+                font-size: 14px;
+                padding: 10px 14px;
+            }
+            .filter-stats {
+                font-size: 11px;
+            }
+            .column-manager {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .column-toggle-group {
+                max-width: 100%;
+                justify-content: flex-start;
+            }
+            .column-toggle-btn {
+                padding: 6px 14px;
+                font-size: 12px;
+            }
+            .active-chips {
+                padding: 10px 16px;
+                gap: 8px;
+            }
+            .filter-chip {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+        }
+        @media (max-width: 480px) {
+            .filter-header h3 {
+                font-size: 13px;
+            }
+            .hint-badge {
+                font-size: 9px;
+            }
+            .columns-filter-grid {
+                max-height: 400px;
+            }
+            .filter-card {
+                padding: 8px 10px;
+            }
+            .filter-card label {
+                font-size: 11px;
+                white-space: normal;
+                word-break: break-word;
+            }
+            .column-toggle-btn {
+                font-size: 10px;
+                padding: 5px 10px;
+            }
+            .action-bar button,
+            .action-bar input {
+                width: 100%;
+                text-align: center;
+            }
+            .stats-grid .stat-card {
+                min-width: 120px;
+            }
+        }
     </style>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <!-- SheetJS for Excel parsing -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    <!-- External main script -->
-    <script src="script.js" defer></script>
+
+    <!-- ===== FIREBASE SDKs ===== -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js">
+    </script>
+
+    <!-- ===== SHEETJS (Excel) ===== -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js">
+    </script>
+
+    <!-- ===== PAPAPARSE (CSV streaming) ===== -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js">
+    </script>
 </head>
 <body>
 
-<!-- ==================== STRICT CREDENTIALS LOGIN OVERLAY ==================== -->
-<div id="userLoginOverlay" class="user-login-overlay">
-    <div class="user-login-card">
-        <h2>📊 Secure Data Portal</h2>
-        <div class="user-login-sub">Enter your credentials to access the dataset dashboard</div>
-        <input type="text" id="userLoginUsername" placeholder="Username" autocomplete="off">
-        <input type="password" id="userLoginPassword" placeholder="Password">
-        <button id="userLoginSubmitBtn" class="user-login-btn">🔐 Sign In</button>
-        <div id="userLoginErrorMsg" class="user-login-error" style="display: none;"></div>
-        <div class="demo-hint">
-            💡 Demo credentials: <strong>admin</strong> / <strong>admin123</strong>
-        </div>
-    </div>
-</div>
-
-<!-- ==================== MAIN DASHBOARD CONTAINER ==================== -->
-<div id="dashboardMainContainer" class="dashboard-main-container">
-    <div class="upload-container">
-        <div class="header-info">
-            <div class="title-section">
-                <h2>📊 Persistent CSV Dataset <span class="single-dataset-badge">💾 Auto‑load on refresh</span></h2>
+    <!-- ============================================================ -->
+    <!--  LOGIN OVERLAY                                               -->
+    <!-- ============================================================ -->
+    <div id="userLoginOverlay" class="user-login-overlay">
+        <div class="user-login-card">
+            <h2>📊 Secure Data Portal</h2>
+            <div class="user-login-sub">Enter your credentials to access the dataset dashboard</div>
+            <input type="text" id="userLoginUsername" placeholder="Username" autocomplete="off" />
+            <input type="password" id="userLoginPassword" placeholder="Password" />
+            <button id="userLoginSubmitBtn" class="user-login-btn">🔐 Sign In</button>
+            <div id="userLoginErrorMsg" class="user-login-error" style="display: none;"></div>
+            <div class="demo-hint">
+                💡 Demo credentials: <strong>admin</strong> / <strong>admin123</strong>
             </div>
-            <div class="last-updated-section">
-                <span class="last-updated-label">🕒 Last Updated:</span>
-                <span class="last-updated-value" id="lastUpdatedTime">—</span>
-                <span class="refresh-indicator" id="refreshIndicator">🔄 Auto-sync</span>
-            </div>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
-            <div id="userWelcomeBadge" class="user-welcome-badge" style="display: none;"></div>
-            <button id="adminLoginBtn" class="admin-btn">🔐 Admin Login</button>
-        </div>
-        <div id="adminBadge" style="margin-top: 8px;"></div>
-        
-        <!-- Admin Protected Section -->
-        <div id="adminSection" class="admin-protected">
-            <div class="stats-grid">
-                <div class="stat-card"><div class="stat-value" id="totalRows">0</div><div class="stat-label">Total Rows in DB</div></div>
-                <div class="stat-card"><div class="stat-value" id="uploadSpeed">0</div><div class="stat-label">Rows/Second (upload)</div></div>
-                <div class="stat-card"><div class="stat-value" id="batchProgress">0</div><div class="stat-label">Batches Completed</div></div>
-                <div class="stat-card"><div class="stat-value" id="filteredCount">—</div><div class="stat-label">Filtered Rows</div></div>
-            </div>
-            <div class="action-bar">
-                <input type="file" id="csvFile" accept=".csv, .xlsx, .xls, .xlsm">
-                <button id="uploadBtn">⬆️ Upload & Replace (CSV/Excel)</button>
-                <button id="loadBtn" class="load-btn">🔄 Refresh from Firebase</button>
-                <button id="deleteBtn" class="delete-btn">🗑️ Delete All Data</button>
-            </div>
-            <div class="progress-container" id="progressContainer">
-                <div class="progress-bar"><div class="progress-fill" id="progressFill">0%</div></div>
-                <div class="batch-info" id="batchInfo"></div>
-            </div>
-            <div id="status"></div>
         </div>
     </div>
 
-    <!-- ENHANCED FILTER PANEL AREA -->
-    <div id="filterPanelArea" style="display: none;">
-        <div class="filter-panel-container" id="mainFilterContainer">
-            <div class="filter-header">
-                <h3>🔍 Column Filters <span class="hint-badge">✨ Hint Match: "flower" matches "flowers", "flowering"</span></h3>
-                <div class="filter-actions">
-                    <button id="applyAllFiltersBtn">Apply Filters</button>
-                    <button id="resetAllFiltersBtn" class="clear-all-btn">Reset All Filters</button>
+    <!-- ============================================================ -->
+    <!--  DASHBOARD                                                   -->
+    <!-- ============================================================ -->
+    <div id="dashboardMainContainer" class="dashboard-main-container">
+
+        <!-- ---- UPLOAD CONTAINER ---- -->
+        <div class="upload-container">
+            <div class="header-info">
+                <div class="title-section">
+                    <h2>📊 Persistent CSV Dataset <span class="single-dataset-badge">💾 Auto‑load on refresh</span></h2>
+                </div>
+                <div class="last-updated-section">
+                    <span class="last-updated-label">🕒 Last Updated:</span>
+                    <span class="last-updated-value" id="lastUpdatedTime">—</span>
+                    <span class="refresh-indicator" id="refreshIndicator">🔄 Auto-sync</span>
                 </div>
             </div>
-            <div id="dynamicFilterCards" class="columns-filter-grid"></div>
-            <div id="activeFilterChips" class="active-chips"></div>
-        </div>
-    </div>
 
-    <div id="columnManagerArea" style="display: none;">
-        <div class="column-manager">
-            <span class="column-manager-label">👁️ Show/Hide Columns</span>
-            <div id="columnToggleGroup" class="column-toggle-group"></div>
-            <button id="resetColumnVisibilityBtn" class="reset-columns-btn">Reset All Columns</button>
-        </div>
-    </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+                <div id="userWelcomeBadge" class="user-welcome-badge" style="display:none;"></div>
+                <button id="adminLoginBtn" class="admin-btn">🔐 Admin Login</button>
+            </div>
 
-    <div class="excel-table-container" id="excelTableContainer" style="display: none;">
-        <div class="table-wrapper">
-            <table class="data-table" id="dataTable">
-                <thead id="tableHeader"></thead>
-                <tbody id="tableBody"></tbody>
-            </table>
+            <div id="adminBadge"></div>
+
+            <!-- Admin Protected Section -->
+            <div id="adminSection" class="admin-protected">
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-value" id="totalRows">0</div><div class="stat-label">Total Rows in DB</div></div>
+                    <div class="stat-card"><div class="stat-value" id="uploadSpeed">0</div><div class="stat-label">Rows/Second (upload)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="batchProgress">0</div><div class="stat-label">Batches Completed</div></div>
+                    <div class="stat-card"><div class="stat-value" id="filteredCount">—</div><div class="stat-label">Filtered Rows</div></div>
+                </div>
+
+                <div class="action-bar">
+                    <input type="file" id="csvFile" accept=".csv, .xlsx, .xls, .xlsm" />
+                    <button id="uploadBtn">⬆️ Upload &amp; Replace (CSV/Excel)</button>
+                    <button id="loadBtn" class="load-btn">🔄 Refresh from Firebase</button>
+                    <button id="deleteBtn" class="delete-btn">🗑️ Delete All Data</button>
+                </div>
+
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar"><div class="progress-fill" id="progressFill">0%</div></div>
+                    <div class="batch-info" id="batchInfo"></div>
+                </div>
+
+                <div id="status"></div>
+            </div>
         </div>
-        <div class="pagination" id="pagination" style="display: none;">
-            <button id="prevPage">◀ Previous</button>
-            <span class="page-info" id="pageInfo">Page 1</span>
-            <button id="nextPage">Next ▶</button>
+
+        <!-- ---- FILTER PANEL ---- -->
+        <div id="filterPanelArea" style="display:none;">
+            <div class="filter-panel-container" id="mainFilterContainer">
+                <div class="filter-header">
+                    <h3>🔍 Column Filters <span class="hint-badge">✨ Hint Match: "flower" matches "flowers", "flowering"</span></h3>
+                    <div class="filter-actions">
+                        <button id="applyAllFiltersBtn">Apply Filters</button>
+                        <button id="resetAllFiltersBtn" class="clear-all-btn">Reset All Filters</button>
+                    </div>
+                </div>
+                <div id="dynamicFilterCards" class="columns-filter-grid"></div>
+                <div id="activeFilterChips" class="active-chips"></div>
+            </div>
         </div>
+
+        <!-- ---- COLUMN MANAGER ---- -->
+        <div id="columnManagerArea" style="display:none;">
+            <div class="column-manager">
+                <span class="column-manager-label">👁️ Show/Hide Columns</span>
+                <div id="columnToggleGroup" class="column-toggle-group"></div>
+                <button id="resetColumnVisibilityBtn" class="reset-columns-btn">Reset All Columns</button>
+            </div>
+        </div>
+
+        <!-- ---- TABLE ---- -->
+        <div class="excel-table-container" id="excelTableContainer" style="display:none;">
+            <div class="table-wrapper">
+                <table class="data-table" id="dataTable">
+                    <thead id="tableHeader"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination" style="display:none;">
+                <button id="prevPage">◀ Previous</button>
+                <span class="page-info" id="pageInfo">Page 1</span>
+                <button id="nextPage">Next ▶</button>
+            </div>
+        </div>
+
     </div>
-</div>
+    <!-- /dashboard-main-container -->
+
+
+    <!-- ============================================================ -->
+    <!--  JAVASCRIPT                                                  -->
+    <!-- ============================================================ -->
+    <script>
+        // ================================================================
+        //  1.  FIREBASE CONFIG
+        // ================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAbEQB9kQUAqS0eAlNGUx4Al_CsrhZ-Y58",
+            authDomain: "mmsdata-44117.firebaseapp.com",
+            databaseURL: "https://mmsdata-44117-default-rtdb.firebaseio.com",
+            projectId: "mmsdata-44117",
+            storageBucket: "mmsdata-44117.firebasestorage.app",
+            messagingSenderId: "525548358076",
+            appId: "1:525548358076:web:55375641f966d7966083b9",
+            measurementId: "G-85BC57T8R5"
+        };
+
+        let database = null;
+        try {
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            console.log("✅ Firebase ready");
+        } catch (e) {
+            console.warn(e);
+        }
+
+        // ================================================================
+        //  2.  STATE
+        // ================================================================
+        const STORAGE_KEYS = {
+            FILTER_TEXTS: 'csv_persist_filter_texts',
+            FILTER_SELECTED: 'csv_persist_filter_selected',
+            SORT_COL: 'csv_persist_sort_col',
+            SORT_DIR: 'csv_persist_sort_dir',
+            COLUMN_VISIBILITY: 'csv_persist_column_visibility'
+        };
+
+        let rawDataset = [];
+        let currentHeaders = [];
+        let filteredSortedData = [];
+        let currentPage = 1;
+        const ROWS_PER_PAGE = 100;
+
+        let columnSearchTexts = {};
+        let columnSelectedValues = {};
+        let sortConfig = { column: null, direction: 'asc' };
+        let columnVisibility = {};
+
+        let currentMetadata = null;
+        let currentLoggedInUser = null;
+        let isAdminLoggedIn = false;
+        let currentAdminUser = null;
+        let activeSpinner = null;
+        let activeDropdown = null;
+
+        // ================================================================
+        //  3.  DOM REFS
+        // ================================================================
+        const $ = (id) => document.getElementById(id);
+
+        const userLoginOverlay = $('userLoginOverlay');
+        const dashboardContainer = $('dashboardMainContainer');
+        const userLoginUsername = $('userLoginUsername');
+        const userLoginPassword = $('userLoginPassword');
+        const userLoginBtn = $('userLoginSubmitBtn');
+        const userLoginError = $('userLoginErrorMsg');
+        const userWelcomeBadge = $('userWelcomeBadge');
+
+        const csvFileInput = $('csvFile');
+        const uploadBtn = $('uploadBtn');
+        const loadBtn = $('loadBtn');
+        const deleteBtn = $('deleteBtn');
+        const statusDiv = $('status');
+        const progressContainer = $('progressContainer');
+        const progressFill = $('progressFill');
+        const batchInfo = $('batchInfo');
+        const totalRowsElem = $('totalRows');
+        const uploadSpeedElem = $('uploadSpeed');
+        const batchProgressElem = $('batchProgress');
+        const filteredCountSpan = $('filteredCount');
+        const excelContainer = $('excelTableContainer');
+        const filterPanelArea = $('filterPanelArea');
+        const columnManagerArea = $('columnManagerArea');
+        const dynamicFilterCards = $('dynamicFilterCards');
+        const activeFilterChips = $('activeFilterChips');
+        const tableHeader = $('tableHeader');
+        const tableBody = $('tableBody');
+        const mainFilterContainer = $('mainFilterContainer');
+        const columnToggleGroup = $('columnToggleGroup');
+        const resetColumnVisibilityBtn = $('resetColumnVisibilityBtn');
+        const adminSection = $('adminSection');
+        const adminLoginBtn = $('adminLoginBtn');
+        const adminBadge = $('adminBadge');
+        const lastUpdatedTimeSpan = $('lastUpdatedTime');
+        const applyAllFiltersBtn = $('applyAllFiltersBtn');
+        const resetAllFiltersBtn = $('resetAllFiltersBtn');
+        const prevPageBtn = $('prevPage');
+        const nextPageBtn = $('nextPage');
+        const pageInfo = $('pageInfo');
+
+        // ================================================================
+        //  4.  UTILITY FUNCTIONS
+        // ================================================================
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '—';
+            try {
+                const d = new Date(timestamp);
+                return d.toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
+            } catch (_) {
+                return String(timestamp);
+            }
+        }
+
+        function sanitizeFirebaseKey(key) {
+            return String(key).replace(/[\.#\$\/\[\]]/g, '_');
+        }
+
+        function sanitizeRowObject(row) {
+            const clean = {};
+            for (const [k, v] of Object.entries(row)) {
+                clean[sanitizeFirebaseKey(k)] = v;
+            }
+            return clean;
+        }
+
+        function updateLastUpdatedDisplay(meta) {
+            if (meta && meta.timestamp) {
+                lastUpdatedTimeSpan.innerHTML =
+                    `${formatTimestamp(meta.timestamp)} <span style="font-size:10px;opacity:0.7;">(${meta.fileName || 'CSV'})</span>`;
+            } else {
+                lastUpdatedTimeSpan.textContent = '—';
+            }
+        }
+
+        function showStatus(msg, type) {
+            if (!statusDiv) return;
+            statusDiv.innerHTML = msg;
+            statusDiv.className = `status ${type}`;
+            setTimeout(() => {
+                if (statusDiv.innerHTML === msg) statusDiv.innerHTML = '';
+            }, 4000);
+        }
+
+        // ----- SPINNER -----
+        function showGlobalSpinner(message = 'Loading data...') {
+            if (activeSpinner) hideGlobalSpinner();
+            const overlay = document.createElement('div');
+            overlay.className = 'global-spinner-overlay';
+            overlay.innerHTML = `
+                    <div class="spinner-card">
+                        <div class="spinner"></div>
+                        <div class="spinner-text">${escapeHtml(message)}</div>
+                    </div>
+                `;
+            document.body.appendChild(overlay);
+            activeSpinner = overlay;
+        }
+
+        function hideGlobalSpinner() {
+            if (activeSpinner) {
+                activeSpinner.remove();
+                activeSpinner = null;
+            }
+        }
+
+        function withSpinner(promise, message = 'Processing...') {
+            showGlobalSpinner(message);
+            return promise.finally(() => hideGlobalSpinner());
+        }
+
+        // ----- Retry helper -----
+        async function retryOperation(fn, retries = 3, delay = 500) {
+            let lastError;
+            for (let attempt = 0; attempt < retries; attempt++) {
+                try {
+                    return await fn();
+                } catch (err) {
+                    lastError = err;
+                    if (attempt < retries - 1) {
+                        const wait = delay * Math.pow(2, attempt) + Math.random() * 200;
+                        await new Promise(r => setTimeout(r, wait));
+                    }
+                }
+            }
+            throw lastError || new Error('Operation failed after retries');
+        }
+
+        // ================================================================
+        //  5.  USER AUTHENTICATION
+        // ================================================================
+        async function validateUserCredentials(username, password) {
+            if (!database) throw new Error('Firebase not connected');
+            const snapshot = await database.ref('adminUsers').orderByChild('username').equalTo(username).once('value');
+            if (!snapshot.exists()) throw new Error('Invalid username or password');
+
+            let validUser = null;
+            snapshot.forEach(child => {
+                const u = child.val();
+                if (u.username === username && u.password === password) {
+                    validUser = { id: child.key, ...u };
+                }
+            });
+            if (!validUser) throw new Error('Invalid username or password');
+            return validUser;
+        }
+
+        function storeUserSession(user) {
+            const session = {
+                loggedIn: true,
+                username: user.username,
+                fullName: user.fullName || user.username,
+                email: user.email || '',
+                role: user.role || 'user',
+                expiry: Date.now() + 8 * 60 * 60 * 1000
+            };
+            localStorage.setItem('csv_user_session', JSON.stringify(session));
+        }
+
+        function checkExistingUserSession() {
+            const saved = localStorage.getItem('csv_user_session');
+            if (!saved) return null;
+            try {
+                const session = JSON.parse(saved);
+                if (session.loggedIn && session.expiry > Date.now()) return session;
+                localStorage.removeItem('csv_user_session');
+            } catch (_) {
+                localStorage.removeItem('csv_user_session');
+            }
+            return null;
+        }
+
+        function clearUserSession() {
+            localStorage.removeItem('csv_user_session');
+            currentLoggedInUser = null;
+            userWelcomeBadge.style.display = 'none';
+        }
+
+        async function performUserLogin(username, password) {
+            const user = await validateUserCredentials(username, password);
+            storeUserSession(user);
+            return user;
+        }
+
+        function showDashboardAfterLogin(user) {
+            currentLoggedInUser = user;
+            userLoginOverlay.style.display = 'none';
+            dashboardContainer.style.display = 'block';
+
+            const displayName = user.fullName || user.username;
+            userWelcomeBadge.innerHTML = `
+                    👋 Welcome, ${escapeHtml(displayName)}
+                    <button id="userLogoutBtn" style="background:none;border:none;color:white;cursor:pointer;margin-left:8px;">🚪 Logout</button>
+                `;
+            userWelcomeBadge.style.display = 'inline-flex';
+
+            const logoutBtn = document.getElementById('userLogoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    clearUserSession();
+                    location.reload();
+                });
+            }
+
+            initializeDashboard();
+        }
+
+        async function handleUserLogin() {
+            const username = userLoginUsername.value.trim();
+            const password = userLoginPassword.value;
+            if (!username || !password) {
+                userLoginError.style.display = 'block';
+                userLoginError.textContent = 'Please enter username and password';
+                return;
+            }
+            userLoginBtn.disabled = true;
+            userLoginBtn.textContent = 'Verifying...';
+            userLoginError.style.display = 'none';
+
+            try {
+                const user = await performUserLogin(username, password);
+                showDashboardAfterLogin(user);
+            } catch (err) {
+                userLoginError.style.display = 'block';
+                userLoginError.textContent = err.message;
+                userLoginBtn.disabled = false;
+                userLoginBtn.textContent = '🔐 Sign In';
+            }
+        }
+
+        // ================================================================
+        //  6.  ADMIN AUTHENTICATION
+        // ================================================================
+        async function validateAdminWithDB(username, password) {
+            if (!database) throw new Error('Firebase not connected');
+            const snapshot = await database.ref('adminUsers').orderByChild('username').equalTo(username).once('value');
+            if (!snapshot.exists()) throw new Error('Admin account not found.');
+
+            let matched = null;
+            snapshot.forEach(child => {
+                const u = child.val();
+                if (u.username === username) matched = { id: child.key, ...u };
+            });
+            if (!matched) throw new Error('Invalid credentials');
+            if (matched.password !== password) throw new Error('Incorrect password');
+            return matched;
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('csv_admin_session');
+            isAdminLoggedIn = false;
+            currentAdminUser = null;
+            adminSection.classList.remove('visible');
+            adminBadge.innerHTML = '';
+            showStatus('Logged out successfully', 'info');
+        }
+
+        function checkExistingAdminSession() {
+            const saved = localStorage.getItem('csv_admin_session');
+            if (!saved) return;
+            try {
+                const session = JSON.parse(saved);
+                if (session.loggedIn && session.expiry > Date.now()) {
+                    isAdminLoggedIn = true;
+                    currentAdminUser = session.username;
+                    adminSection.classList.add('visible');
+                    adminBadge.innerHTML = `
+                            <span class="admin-logged-badge">
+                                ✅ Admin: ${escapeHtml(session.username)}
+                                <button id="logoutBtn" style="background:none;border:none;color:white;cursor:pointer;margin-left:6px;">🚪 Logout</button>
+                            </span>
+                        `;
+                    const logoutBtn = document.getElementById('logoutBtn');
+                    if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
+                    showStatus(`Welcome back, ${session.username}!`, 'success');
+                } else {
+                    localStorage.removeItem('csv_admin_session');
+                }
+            } catch (_) {
+                localStorage.removeItem('csv_admin_session');
+            }
+        }
+
+        function showAdminModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                    <div class="modal-content">
+                        <h3>🔐 Admin Login</h3>
+                        <input type="text" id="adminUsername" placeholder="Username" />
+                        <input type="password" id="adminPassword" placeholder="Password" />
+                        <div id="modalError" class="error-msg"></div>
+                        <div class="modal-buttons">
+                            <button id="modalLoginBtn">Login</button>
+                            <button id="modalCancelBtn">Cancel</button>
+                        </div>
+                    </div>
+                `;
+            document.body.appendChild(modal);
+
+            const usernameInput = modal.querySelector('#adminUsername');
+            const passwordInput = modal.querySelector('#adminPassword');
+            const loginBtnModal = modal.querySelector('#modalLoginBtn');
+            const cancelBtn = modal.querySelector('#modalCancelBtn');
+            const errorDiv = modal.querySelector('#modalError');
+
+            const tryLogin = async () => {
+                const user = usernameInput.value.trim();
+                const pass = passwordInput.value;
+                if (!user || !pass) { errorDiv.textContent = 'Please enter credentials'; return; }
+                loginBtnModal.disabled = true;
+                loginBtnModal.textContent = 'Verifying...';
+
+                try {
+                    const adminUser = await validateAdminWithDB(user, pass);
+                    isAdminLoggedIn = true;
+                    currentAdminUser = adminUser.username;
+
+                    localStorage.setItem('csv_admin_session', JSON.stringify({
+                        loggedIn: true,
+                        username: adminUser.username,
+                        expiry: Date.now() + 60 * 60 * 1000
+                    }));
+
+                    adminSection.classList.add('visible');
+                    adminBadge.innerHTML = `
+                            <span class="admin-logged-badge">
+                                ✅ Admin: ${escapeHtml(adminUser.username)}
+                                <button id="logoutBtn" style="background:none;border:none;color:white;cursor:pointer;">🚪 Logout</button>
+                            </span>
+                        `;
+                    const logoutBtn = document.getElementById('logoutBtn');
+                    if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
+
+                    showStatus(`Admin access granted. Welcome ${adminUser.username}!`, 'success');
+                    modal.remove();
+                    if (rawDataset.length === 0 && database) loadLatestData();
+                } catch (err) {
+                    errorDiv.textContent = err.message;
+                } finally {
+                    loginBtnModal.disabled = false;
+                    loginBtnModal.textContent = 'Login';
+                }
+            };
+
+            loginBtnModal.addEventListener('click', tryLogin);
+            cancelBtn.addEventListener('click', () => modal.remove());
+            usernameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') tryLogin(); });
+            passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') tryLogin(); });
+        }
+
+        adminLoginBtn.addEventListener('click', showAdminModal);
+
+        // ================================================================
+        //  7.  DATA LOADING & PERSISTENCE (IMPROVED FOR LARGE DATA)
+        // ================================================================
+        function saveAllPreferences() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.FILTER_TEXTS, JSON.stringify(columnSearchTexts));
+
+                const selSer = {};
+                for (const col in columnSelectedValues) {
+                    if (columnSelectedValues[col]?.size) {
+                        selSer[col] = Array.from(columnSelectedValues[col]);
+                    }
+                }
+                localStorage.setItem(STORAGE_KEYS.FILTER_SELECTED, JSON.stringify(selSer));
+                localStorage.setItem(STORAGE_KEYS.SORT_COL, sortConfig.column || '');
+                localStorage.setItem(STORAGE_KEYS.SORT_DIR, sortConfig.direction);
+                localStorage.setItem(STORAGE_KEYS.COLUMN_VISIBILITY, JSON.stringify(columnVisibility));
+            } catch (_) { /* ignore */ }
+        }
+
+        function loadPreferencesIntoState() {
+            try {
+                const texts = localStorage.getItem(STORAGE_KEYS.FILTER_TEXTS);
+                if (texts) {
+                    const p = JSON.parse(texts);
+                    for (const h of currentHeaders) {
+                        if (p[h]) columnSearchTexts[h] = p[h];
+                    }
+                }
+
+                const sel = localStorage.getItem(STORAGE_KEYS.FILTER_SELECTED);
+                if (sel) {
+                    const p = JSON.parse(sel);
+                    for (const h of currentHeaders) {
+                        if (p[h] && Array.isArray(p[h])) {
+                            columnSelectedValues[h] = new Set(p[h]);
+                        }
+                    }
+                }
+
+                const sc = localStorage.getItem(STORAGE_KEYS.SORT_COL);
+                const sd = localStorage.getItem(STORAGE_KEYS.SORT_DIR);
+                if (sc && currentHeaders.includes(sc)) {
+                    sortConfig = { column: sc, direction: (sd === 'asc' || sd === 'desc') ? sd : 'asc' };
+                } else {
+                    sortConfig = { column: null, direction: 'asc' };
+                }
+
+                const vis = localStorage.getItem(STORAGE_KEYS.COLUMN_VISIBILITY);
+                if (vis) {
+                    const p = JSON.parse(vis);
+                    for (const h of currentHeaders) {
+                        columnVisibility[h] = p[h] !== undefined ? p[h] : true;
+                    }
+                } else {
+                    currentHeaders.forEach(h => columnVisibility[h] = true);
+                }
+            } catch (_) { /* ignore */ }
+        }
+
+        async function loadLatestData() {
+            if (!database) {
+                showStatus('Firebase not ready', 'error');
+                return;
+            }
+
+            await withSpinner((async () => {
+                if (loadBtn) loadBtn.disabled = true;
+
+                const snapshot = await database.ref('csvUploads').once('value');
+                if (!snapshot.exists()) {
+                    tableBody.innerHTML =
+                        `<tr><td colspan="100" class="empty-placeholder">📭 No data. Upload a CSV (Admin only).</td></tr>`;
+                    rawDataset = [];
+                    filteredSortedData = [];
+                    totalRowsElem.innerText = '0';
+                    filteredCountSpan.innerText = '0';
+                    excelContainer.style.display = 'none';
+                    filterPanelArea.style.display = 'none';
+                    columnManagerArea.style.display = 'none';
+                    updateLastUpdatedDisplay(null);
+                    return;
+                }
+
+                // Find latest completed upload
+                let latestUpload = null;
+                snapshot.forEach(child => {
+                    const val = child.val();
+                    if (val.metadata && val.metadata.completed) {
+                        if (!latestUpload || val.metadata.timestamp > latestUpload.metadata.timestamp) {
+                            latestUpload = { id: child.key, metadata: val.metadata, batches: val.batches || {} };
+                        }
+                    }
+                });
+
+                if (!latestUpload) throw new Error('No completed dataset');
+
+                // Load all rows with progress tracking
+                const batches = latestUpload.batches;
+                const batchKeys = Object.keys(batches);
+                const allRows = [];
+
+                // Show progress on the batch info
+                const totalBatches = batchKeys.length;
+                let loadedBatches = 0;
+
+                for (const key of batchKeys) {
+                    if (batches[key] && batches[key].data) {
+                        allRows.push(...batches[key].data);
+                    }
+                    loadedBatches++;
+                    // Update progress every 5 batches
+                    if (loadedBatches % 5 === 0 || loadedBatches === totalBatches) {
+                        const pct = Math.round((loadedBatches / totalBatches) * 100);
+                        batchInfo.textContent = `Loading data... ${loadedBatches}/${totalBatches} batches (${pct}%)`;
+                        progressContainer.style.display = 'block';
+                        progressFill.style.width = pct + '%';
+                        progressFill.textContent = pct + '%';
+                    }
+                    // Small yield to let UI breathe
+                    if (loadedBatches % 10 === 0) await new Promise(r => setTimeout(r, 5));
+                }
+
+                // Hide progress after load
+                progressContainer.style.display = 'none';
+                progressFill.style.width = '0%';
+                batchInfo.textContent = '';
+
+                rawDataset = allRows;
+                currentMetadata = latestUpload.metadata;
+                currentHeaders = latestUpload.metadata.headers ||
+                    (rawDataset.length ? Object.keys(rawDataset[0]) : []);
+
+                totalRowsElem.innerText = rawDataset.length.toLocaleString();
+                updateLastUpdatedDisplay(currentMetadata);
+
+                loadPreferencesIntoState();
+                applyFiltersAndSort();
+                currentPage = 1;
+
+                excelContainer.style.display = 'block';
+                filterPanelArea.style.display = 'block';
+                columnManagerArea.style.display = 'block';
+
+                rebuildFilterCards();
+                renderColumnManager();
+                renderTable();
+                updateFilterChipsDisplay();
+
+                showStatus(`✅ Loaded ${rawDataset.length.toLocaleString()} rows`, 'success');
+            })(), 'Loading dataset...')
+                .catch(err => {
+                    console.error(err);
+                    showStatus('Load error: ' + err.message, 'error');
+                    progressContainer.style.display = 'none';
+                })
+                .finally(() => {
+                    if (loadBtn) loadBtn.disabled = false;
+                });
+        }
+
+        // ================================================================
+        //  8.  UPLOAD / REPLACE (IMPROVED FOR LARGE DATA)
+        // ================================================================
+        async function replaceWithNewData(data, originalHeaders, fileName, onProgress) {
+            // Delete existing data (with retry)
+            await retryOperation(() => database.ref('csvUploads').remove(), 3, 500);
+
+            const uploadId = 'current_dataset_' + Date.now();
+            const uploadRef = database.ref('csvUploads/' + uploadId);
+
+            // Use larger batch size for better throughput
+            const BATCH_SIZE = 2000;
+            const totalBatches = Math.ceil(data.length / BATCH_SIZE);
+            const safeHeaders = originalHeaders.map(h => sanitizeFirebaseKey(h));
+
+            // Write metadata with retry
+            await retryOperation(() =>
+                uploadRef.child('metadata').set({
+                    timestamp: new Date().toISOString(),
+                    headers: safeHeaders,
+                    originalHeaders: originalHeaders,
+                    totalRows: data.length,
+                    fileName,
+                    batchSize: BATCH_SIZE,
+                    totalBatches,
+                    completed: false
+                }), 3, 500
+            );
+
+            // Write batches concurrently with retry
+            const MAX_RETRIES = 4;
+            const CONCURRENT_BATCHES = 4;
+            let completedBatches = 0;
+            const startTime = Date.now();
+
+            for (let i = 0; i < totalBatches; i += CONCURRENT_BATCHES) {
+                const batchPromises = [];
+                const batchIndices = [];
+
+                for (let j = 0; j < CONCURRENT_BATCHES && i + j < totalBatches; j++) {
+                    const batchIndex = i + j;
+                    batchIndices.push(batchIndex);
+                    const start = batchIndex * BATCH_SIZE;
+                    const end = Math.min(start + BATCH_SIZE, data.length);
+                    const batchRaw = data.slice(start, end);
+                    const sanitizedBatch = batchRaw.map(row => sanitizeRowObject(row));
+
+                    const writePromise = retryOperation(async () => {
+                        await uploadRef.child('batches').child(`batch_${batchIndex}`).set({
+                            index: batchIndex,
+                            data: sanitizedBatch
+                        });
+                        return { success: true, batchIndex };
+                    }, MAX_RETRIES, 600);
+
+                    batchPromises.push(writePromise);
+                }
+
+                const results = await Promise.allSettled(batchPromises);
+                for (const result of results) {
+                    if (result.status === 'fulfilled') {
+                        completedBatches++;
+                    } else {
+                        // Log error but continue with remaining batches
+                        console.error('Batch write failed:', result.reason);
+                        // We'll try to recover by re-writing failed batches individually
+                        // But for simplicity, we'll throw if too many failures
+                        if (results.filter(r => r.status === 'rejected').length > 2) {
+                            throw new Error(`Multiple batch failures: ${result.reason?.message || 'Unknown'}`);
+                        }
+                    }
+                }
+
+                // Update progress
+                const elapsed = (Date.now() - startTime) / 1000;
+                const speed = elapsed > 0 ? Math.round(completedBatches * BATCH_SIZE / elapsed) : 0;
+                if (onProgress) {
+                    onProgress({
+                        completedBatches,
+                        totalBatches,
+                        percentage: Math.min((completedBatches / totalBatches) * 100, 100),
+                        speed,
+                        elapsed
+                    });
+                }
+
+                // Small yield to prevent UI freeze
+                if (i % 10 === 0) await new Promise(r => setTimeout(r, 5));
+            }
+
+            // Mark as completed with retry
+            await retryOperation(() =>
+                uploadRef.child('metadata').update({ completed: true }), 3, 500
+            );
+
+            // Return final stats
+            const totalTime = (Date.now() - startTime) / 1000;
+            return {
+                totalBatches,
+                completedBatches,
+                totalRows: data.length,
+                totalTime,
+                avgSpeed: totalTime > 0 ? Math.round(data.length / totalTime) : 0
+            };
+        }
+
+        // ================================================================
+        //  9.  FILE PARSING (IMPROVED WITH PAPAPARSE FOR LARGE CSV)
+        // ================================================================
+        async function parseFileToObjects(file) {
+            const fileName = file.name.toLowerCase();
+
+            // --- CSV: use PapaParse with streaming for large files ---
+            if (fileName.endsWith('.csv')) {
+                return new Promise((resolve, reject) => {
+                    const results = [];
+                    let headers = [];
+                    let isFirstRow = true;
+                    let rowCount = 0;
+
+                    // Use PapaParse to stream large CSV files
+                    Papa.parse(file, {
+                        worker: true,
+                        step: function(row) {
+                            const data = row.data;
+                            if (isFirstRow) {
+                                headers = data.map(h => String(h).trim());
+                                isFirstRow = false;
+                                return;
+                            }
+                            if (data.length === 0 || data.every(v => v === '')) return;
+                            const obj = {};
+                            headers.forEach((h, idx) => {
+                                obj[h] = data[idx] !== undefined ? String(data[idx]).trim() : '';
+                            });
+                            results.push(obj);
+                            rowCount++;
+                            // Yield periodically to keep UI responsive
+                            if (rowCount % 5000 === 0) {
+                                // Small yield
+                                setTimeout(() => {}, 0);
+                            }
+                        },
+                        complete: function() {
+                            resolve({ headers, data: results });
+                        },
+                        error: function(err) {
+                            reject('CSV parsing error: ' + err.message);
+                        },
+                        skipEmptyLines: true,
+                        // For very large files, streaming is better than loading all at once
+                        // Use the step function above to process row by row
+                    });
+                });
+            }
+
+            // --- Excel: use SheetJS (loads entire file into memory) ---
+            const ab = await file.arrayBuffer();
+            const workbook = XLSX.read(ab);
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+            const headers = Object.keys(jsonData[0] || {});
+            const data = jsonData.map(row => {
+                const obj = {};
+                headers.forEach(h => obj[h] = row[h] !== undefined ? String(row[h]) : '');
+                return obj;
+            });
+            return { headers, data };
+        }
+
+        // ================================================================
+        //  10. FILTER & SORT ENGINE
+        // ================================================================
+        function isHintMatch(cellValue, searchRaw) {
+            if (!searchRaw || searchRaw.trim() === '') return true;
+            const cellStr = String(cellValue).toLowerCase().trim();
+            const searchTerm = searchRaw.toLowerCase().trim();
+            if (cellStr.includes(searchTerm)) return true;
+            if (searchTerm.endsWith('s') && searchTerm.length > 3) {
+                const singular = searchTerm.slice(0, -1);
+                if (singular.length >= 3 && cellStr.includes(singular)) return true;
+            }
+            return false;
+        }
+
+        function applyFiltersAndSort() {
+            if (!rawDataset.length) {
+                filteredSortedData = [];
+                if (filteredCountSpan) filteredCountSpan.textContent = '0';
+                return [];
+            }
+
+            let result = [...rawDataset];
+
+            for (const col of currentHeaders) {
+                const searchText = columnSearchTexts[col] || '';
+                const selectedSet = columnSelectedValues[col];
+                if (searchText === '' && (!selectedSet || selectedSet.size === 0)) continue;
+
+                result = result.filter(row => {
+                    const cellVal = row[col] !== undefined && row[col] !== null ? String(row[col]) : '';
+                    if (searchText !== '' && !isHintMatch(cellVal, searchText)) return false;
+                    if (selectedSet && selectedSet.size > 0) return selectedSet.has(cellVal);
+                    return true;
+                });
+            }
+
+            if (sortConfig.column && currentHeaders.includes(sortConfig.column)) {
+                const col = sortConfig.column;
+                const dir = sortConfig.direction;
+                result.sort((a, b) => {
+                    let valA = a[col] !== undefined ? String(a[col]) : '';
+                    let valB = b[col] !== undefined ? String(b[col]) : '';
+                    const numA = parseFloat(valA);
+                    const numB = parseFloat(valB);
+                    const isNumA = !isNaN(numA) && isFinite(valA) && valA.trim() !== '';
+                    const isNumB = !isNaN(numB) && isFinite(valB) && valB.trim() !== '';
+                    if (isNumA && isNumB) {
+                        return dir === 'asc' ? numA - numB : numB - numA;
+                    }
+                    const comp = valA.localeCompare(valB);
+                    return dir === 'asc' ? comp : -comp;
+                });
+            }
+
+            filteredSortedData = result;
+            if (filteredCountSpan) {
+                filteredCountSpan.textContent = filteredSortedData.length.toLocaleString();
+            }
+            return filteredSortedData;
+        }
+
+        function persistAndRefreshUI() {
+            applyFiltersAndSort();
+            currentPage = 1;
+            renderTable();
+            saveAllPreferences();
+            updateFilterChipsDisplay();
+            updateFilterContainerHighlight();
+            if (currentHeaders.length) renderColumnManager();
+        }
+
+        // ================================================================
+        //  11. RENDER TABLE
+        // ================================================================
+        function renderTable() {
+            if (!filteredSortedData.length) {
+                tableBody.innerHTML =
+                    `<tr><td colspan="100" class="empty-placeholder">📭 No matching records. Adjust column filters.</td></tr>`;
+                document.getElementById('pagination').style.display = 'none';
+                return;
+            }
+
+            const start = (currentPage - 1) * ROWS_PER_PAGE;
+            const end = Math.min(start + ROWS_PER_PAGE, filteredSortedData.length);
+            const pageRows = filteredSortedData.slice(start, end);
+
+            const visibleHeaders = currentHeaders.filter(col => columnVisibility[col] !== false);
+            if (visibleHeaders.length === 0) {
+                tableBody.innerHTML = `<tr><td class="empty-placeholder">⚠️ All columns hidden. Use column manager.</td></tr>`;
+                return;
+            }
+
+            // Header
+            let theadHtml = '<tr>';
+            for (const h of visibleHeaders) {
+                const indicator = sortConfig.column === h ?
+                    (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') :
+                    ' ↕️';
+                theadHtml +=
+                    `<th data-sort-col="${escapeHtml(h)}"><span class="th-sort">${escapeHtml(h)}<span class="sort-arrow">${indicator}</span></span></th>`;
+            }
+            theadHtml += '</tr>';
+            tableHeader.innerHTML = theadHtml;
+
+            // Click sort
+            document.querySelectorAll('#tableHeader th').forEach(th => {
+                th.addEventListener('click', () => {
+                    const col = th.getAttribute('data-sort-col');
+                    if (sortConfig.column === col) {
+                        sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortConfig.column = col;
+                        sortConfig.direction = 'asc';
+                    }
+                    persistAndRefreshUI();
+                });
+            });
+
+            // Body
+            let tbodyHtml = '';
+            for (const row of pageRows) {
+                tbodyHtml += '<tr>';
+                for (const h of visibleHeaders) {
+                    let val = row[h] !== undefined && row[h] !== null ? String(row[h]) : '';
+                    const display = val.length > 80 ? val.slice(0, 77) + '...' : val;
+                    tbodyHtml += `<td title="${escapeHtml(val)}">${escapeHtml(display)}</td>`;
+                }
+                tbodyHtml += '</tr>';
+            }
+            tableBody.innerHTML = tbodyHtml;
+
+            // Pagination
+            const totalPages = Math.ceil(filteredSortedData.length / ROWS_PER_PAGE);
+            const paginationDiv = document.getElementById('pagination');
+            if (totalPages <= 1) {
+                paginationDiv.style.display = 'none';
+            } else {
+                paginationDiv.style.display = 'flex';
+                pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+                prevPageBtn.disabled = (currentPage === 1);
+                nextPageBtn.disabled = (currentPage === totalPages);
+            }
+        }
+
+        // ================================================================
+        //  12. FILTER CARDS
+        // ================================================================
+        function rebuildFilterCards() {
+            if (!currentHeaders.length) return;
+            dynamicFilterCards.innerHTML = '';
+
+            for (const col of currentHeaders) {
+                const currentText = columnSearchTexts[col] || '';
+                const uniqueSet = new Set();
+                for (const row of rawDataset) {
+                    const v = row[col] !== undefined && row[col] !== null ? String(row[col]) : '(blank)';
+                    uniqueSet.add(v);
+                }
+                const selectedCount = columnSelectedValues[col]?.size || 0;
+
+                const card = document.createElement('div');
+                card.className = 'filter-card';
+                card.innerHTML = `
+                        <label title="${escapeHtml(col)}">${escapeHtml(col.length > 20 ? col.slice(0, 18) + '..' : col)}</label>
+                        <input type="text" class="filter-text-input" data-col="${escapeHtml(col)}" value="${escapeHtml(currentText)}" />
+                        <div class="filter-stats">
+                            <span>📋 ${uniqueSet.size} unique</span>
+                            <span class="multi-select-trigger" data-col="${escapeHtml(col)}" style="cursor:pointer;color:#2c6e9e;font-weight:500;">
+                                🎯 ${selectedCount > 0 ? `${selectedCount} selected` : 'Select values'}
+                            </span>
+                        </div>
+                    `;
+                dynamicFilterCards.appendChild(card);
+            }
+
+            attachFilterEvents();
+        }
+
+        function attachFilterEvents() {
+            document.querySelectorAll('.filter-text-input').forEach(inp => {
+                inp.removeEventListener('input', handleFilterInput);
+                inp.addEventListener('input', handleFilterInput);
+            });
+            document.querySelectorAll('.multi-select-trigger').forEach(tr => {
+                tr.removeEventListener('click', handleMultiSelect);
+                tr.addEventListener('click', handleMultiSelect);
+            });
+        }
+
+        function handleFilterInput(e) {
+            const col = e.target.getAttribute('data-col');
+            columnSearchTexts[col] = e.target.value;
+            persistAndRefreshUI();
+        }
+
+        // ----- Multi-select (desktop + mobile) -----
+        function handleMultiSelect(e) {
+            const col = e.target.getAttribute('data-col');
+            const uniqueMap = new Map();
+            for (const row of rawDataset) {
+                const val = row[col] !== undefined && row[col] !== null ? String(row[col]) : '(blank)';
+                uniqueMap.set(val, true);
+            }
+            const sorted = Array.from(uniqueMap.keys()).sort();
+            const curSet = columnSelectedValues[col] || new Set();
+            const isMobile = window.innerWidth <= 768;
+
+            if (isMobile) {
+                openMobileFilterModal(col, sorted, curSet);
+                return;
+            }
+
+            openDesktopDropdown(e, col, sorted, curSet);
+        }
+
+        function openDesktopDropdown(e, col, sorted, curSet) {
+            if (activeDropdown) {
+                activeDropdown.remove();
+                activeDropdown = null;
+            }
+
+            const dropdown = document.createElement('div');
+            dropdown.style.cssText =
+                'position:fixed;background:white;border:1px solid #ccc;border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,0.2);min-width:240px;z-index:1000;padding:12px;';
+
+            dropdown.innerHTML = `
+                    <div style="font-weight:600;margin-bottom:8px;">Filter ${escapeHtml(col)}</div>
+                    <input type="text" id="dropdownSearch" placeholder="Search values..." style="width:100%;padding:8px;border-radius:30px;border:1px solid #ccc;margin-bottom:8px;" />
+                    <div id="dropdownList" style="max-height:200px;overflow-y:auto;border-top:1px solid #eee;margin-top:6px;"></div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                        <button id="dropdownOk" style="padding:4px 14px;">OK</button>
+                        <button id="dropdownClear" style="padding:4px 14px;background:#6c7a89;">Clear</button>
+                    </div>
+                `;
+            document.body.appendChild(dropdown);
+
+            const rect = e.target.getBoundingClientRect();
+            let left = rect.left + window.scrollX - 60;
+            let top = rect.bottom + window.scrollY + 4;
+            const dRect = dropdown.getBoundingClientRect();
+            if (left + dRect.width > window.innerWidth) left = window.innerWidth - dRect.width - 10;
+            if (top + dRect.height > window.innerHeight) top = window.innerHeight - dRect.height - 10;
+            if (left < 10) left = 10;
+            dropdown.style.left = left + 'px';
+            dropdown.style.top = top + 'px';
+
+            const listDiv = dropdown.querySelector('#dropdownList');
+            const searchInput = dropdown.querySelector('#dropdownSearch');
+
+            function renderList(filter = '') {
+                const filtered = sorted.filter(v => filter === '' || v.toLowerCase().includes(filter.toLowerCase()));
+                listDiv.innerHTML = '';
+                for (const val of filtered) {
+                    const isChecked = curSet.has(val);
+                    const item = document.createElement('div');
+                    item.style.cssText =
+                        'display:flex;align-items:center;gap:8px;padding:5px 0;';
+                    item.innerHTML =
+                        `<input type="checkbox" value="${escapeHtml(val)}" ${isChecked ? 'checked' : ''} /> <span style="font-size:12px;">${escapeHtml(val.length > 50 ? val.slice(0, 47) + '...' : val)}</span>`;
+                    listDiv.appendChild(item);
+                }
+            }
+            renderList();
+
+            searchInput.addEventListener('input', (e) => renderList(e.target.value));
+
+            dropdown.querySelector('#dropdownOk').addEventListener('click', () => {
+                const newSet = new Set();
+                dropdown.querySelectorAll('#dropdownList input:checked').forEach(cb => newSet.add(cb.value));
+                if (newSet.size) columnSelectedValues[col] = newSet;
+                else delete columnSelectedValues[col];
+                persistAndRefreshUI();
+                rebuildFilterCards();
+                dropdown.remove();
+                activeDropdown = null;
+            });
+
+            dropdown.querySelector('#dropdownClear').addEventListener('click', () => {
+                delete columnSelectedValues[col];
+                persistAndRefreshUI();
+                rebuildFilterCards();
+                dropdown.remove();
+                activeDropdown = null;
+            });
+
+            activeDropdown = dropdown;
+        }
+
+        function openMobileFilterModal(col, sorted, curSet) {
+            const overlay = document.createElement('div');
+            overlay.className = 'mobile-filter-modal-overlay';
+
+            const card = document.createElement('div');
+            card.className = 'mobile-filter-modal-card';
+            card.innerHTML = `
+                    <div class="mobile-filter-header">Filter: ${escapeHtml(col)}</div>
+                    <div class="mobile-filter-search"><input type="text" id="mobileFilterSearch" placeholder="Search values..." /></div>
+                    <div class="mobile-filter-list" id="mobileFilterList"></div>
+                    <div class="mobile-filter-buttons">
+                        <button id="mobileFilterOkBtn" style="background:#2c6e9e;">Apply</button>
+                        <button id="mobileFilterClearBtn" style="background:#6c7a89;">Clear</button>
+                    </div>
+                `;
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+
+            const listContainer = card.querySelector('#mobileFilterList');
+            const searchInput = card.querySelector('#mobileFilterSearch');
+            let currentChecked = new Set(curSet);
+
+            function renderList(filter = '') {
+                const filtered = sorted.filter(v => filter === '' || v.toLowerCase().includes(filter.toLowerCase()));
+                listContainer.innerHTML = '';
+                for (const val of filtered) {
+                    const isChecked = currentChecked.has(val);
+                    const item = document.createElement('div');
+                    item.className = 'mobile-filter-item';
+                    item.innerHTML =
+                        `<input type="checkbox" value="${escapeHtml(val)}" ${isChecked ? 'checked' : ''} /> <span>${escapeHtml(val.length > 60 ? val.slice(0, 57) + '...' : val)}</span>`;
+                    listContainer.appendChild(item);
+                }
+            }
+            renderList();
+
+            searchInput.addEventListener('input', (e) => renderList(e.target.value));
+
+            card.querySelector('#mobileFilterOkBtn').addEventListener('click', () => {
+                const newSet = new Set();
+                listContainer.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => newSet.add(cb.value));
+                if (newSet.size) columnSelectedValues[col] = newSet;
+                else delete columnSelectedValues[col];
+                persistAndRefreshUI();
+                rebuildFilterCards();
+                overlay.remove();
+                activeDropdown = null;
+            });
+
+            card.querySelector('#mobileFilterClearBtn').addEventListener('click', () => {
+                delete columnSelectedValues[col];
+                persistAndRefreshUI();
+                rebuildFilterCards();
+                overlay.remove();
+                activeDropdown = null;
+            });
+
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            activeDropdown = overlay;
+        }
+
+        // ================================================================
+        //  13. FILTER CHIPS & HIGHLIGHT
+        // ================================================================
+        function updateFilterChipsDisplay() {
+            const active = [];
+            for (const col of currentHeaders) {
+                const txt = columnSearchTexts[col] || '';
+                const sel = columnSelectedValues[col];
+                if (txt || (sel && sel.size)) {
+                    const desc = [];
+                    if (txt) desc.push(`hint:"${txt}"`);
+                    if (sel && sel.size) desc.push(`${sel.size} values`);
+                    active.push({ col, label: desc.join(' + ') });
+                }
+            }
+
+            if (active.length === 0) {
+                activeFilterChips.innerHTML = '<span style="font-size:12px;">✨ No active filters</span>';
+            } else {
+                let html = '<span style="font-size:12px;">🔍 Active filters:</span>';
+                for (const f of active) {
+                    html += `
+                            <div class="filter-chip">
+                                ${escapeHtml(f.col)}: ${escapeHtml(f.label)}
+                                <button class="clear-chip" data-col="${escapeHtml(f.col)}">✖</button>
+                            </div>
+                        `;
+                }
+                activeFilterChips.innerHTML = html;
+
+                document.querySelectorAll('.clear-chip').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const col = btn.getAttribute('data-col');
+                        delete columnSearchTexts[col];
+                        delete columnSelectedValues[col];
+                        persistAndRefreshUI();
+                        rebuildFilterCards();
+                    });
+                });
+            }
+
+            updateFilterContainerHighlight();
+        }
+
+        function updateFilterContainerHighlight() {
+            if (mainFilterContainer) {
+                const anyActive = Object.keys(columnSearchTexts).some(k => columnSearchTexts[k]?.trim()) ||
+                    Object.keys(columnSelectedValues).some(k => columnSelectedValues[k]?.size);
+                if (anyActive) mainFilterContainer.classList.add('has-active-filters');
+                else mainFilterContainer.classList.remove('has-active-filters');
+            }
+
+            document.querySelectorAll('.filter-card').forEach(card => {
+                const labelElem = card.querySelector('label');
+                if (!labelElem) return;
+                let colTitle = labelElem.innerText;
+                const matchedCol = currentHeaders.find(h => h === colTitle || colTitle.includes(h)) || colTitle;
+                if (matchedCol && (columnSearchTexts[matchedCol]?.trim() || columnSelectedValues[matchedCol]?.size)) {
+                    card.classList.add('has-column-filter');
+                } else {
+                    card.classList.remove('has-column-filter');
+                }
+            });
+        }
+
+        // ================================================================
+        //  14. COLUMN MANAGER
+        // ================================================================
+        function renderColumnManager() {
+            if (!currentHeaders.length) return;
+            columnToggleGroup.innerHTML = '';
+
+            for (const col of currentHeaders) {
+                const isVisible = columnVisibility[col] !== false;
+                const btn = document.createElement('button');
+                btn.className = `column-toggle-btn ${isVisible ? 'active-col' : 'hidden-col'}`;
+                btn.textContent = col.length > 20 ? col.slice(0, 18) + '..' : col;
+                btn.addEventListener('click', () => {
+                    columnVisibility[col] = !isVisible;
+                    renderColumnManager();
+                    persistAndRefreshUI();
+                });
+                columnToggleGroup.appendChild(btn);
+            }
+        }
+
+        function resetColumnVisibility() {
+            currentHeaders.forEach(col => columnVisibility[col] = true);
+            renderColumnManager();
+            persistAndRefreshUI();
+            showStatus('All columns visible', 'success');
+        }
+
+        // ================================================================
+        //  15. EVENT BINDINGS
+        // ================================================================
+        // Upload
+        uploadBtn.addEventListener('click', async () => {
+            if (!isAdminLoggedIn) {
+                showStatus('Admin access required', 'error');
+                return;
+            }
+            const file = csvFileInput.files[0];
+            if (!file) {
+                showStatus('Select CSV or Excel file', 'error');
+                return;
+            }
+
+            // Warn about very large files
+            if (file.size > 50 * 1024 * 1024) {
+                if (!confirm(`File is ${(file.size / 1024 / 1024).toFixed(1)} MB. Large files may take a while. Continue?`)) {
+                    return;
+                }
+            }
+
+            uploadBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            progressFill.style.width = '0%';
+            progressFill.textContent = '0%';
+            batchInfo.textContent = 'Parsing file...';
+
+            try {
+                // Parse the file (with progress on the batch info)
+                const parseStart = Date.now();
+                const { headers, data } = await parseFileToObjects(file);
+                const parseTime = (Date.now() - parseStart) / 1000;
+                batchInfo.textContent = `Parsed ${data.length.toLocaleString()} rows in ${parseTime.toFixed(1)}s. Uploading...`;
+
+                if (!data.length) throw new Error('No data rows found');
+
+                // Upload with progress
+                const stats = await withSpinner(
+                    new Promise((resolve, reject) => {
+                        replaceWithNewData(data, headers, file.name, (prog) => {
+                            const pct = Math.round(prog.percentage);
+                            progressFill.style.width = pct + '%';
+                            progressFill.textContent = pct + '%';
+                            const speed = prog.speed || 0;
+                            batchInfo.textContent =
+                                `Batch ${prog.completedBatches}/${prog.totalBatches} | ${speed.toLocaleString()} rows/sec | ${pct}%`;
+                            // Update stats
+                            uploadSpeedElem.textContent = speed.toLocaleString();
+                            batchProgressElem.textContent = `${prog.completedBatches}/${prog.totalBatches}`;
+                        }).then(resolve).catch(reject);
+                    }),
+                    'Uploading dataset...'
+                );
+
+                // Update stats
+                if (stats) {
+                    uploadSpeedElem.textContent = stats.avgSpeed.toLocaleString();
+                    batchProgressElem.textContent = `${stats.totalBatches}/${stats.totalBatches}`;
+                }
+
+                showStatus(`✅ Upload complete! ${data.length.toLocaleString()} rows in ${stats?.totalTime?.toFixed(1) || '?'}s`,
+                    'success');
+                await loadLatestData();
+            } catch (err) {
+                console.error(err);
+                showStatus('Upload error: ' + err.message, 'error');
+                progressFill.style.width = '0%';
+                progressFill.textContent = '0%';
+                batchInfo.textContent = 'Upload failed. Check console for details.';
+            } finally {
+                uploadBtn.disabled = false;
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    progressFill.textContent = '0%';
+                    batchInfo.textContent = '';
+                }, 3000);
+                csvFileInput.value = '';
+            }
+        });
+
+        // Delete
+        deleteBtn.addEventListener('click', async () => {
+            if (!isAdminLoggedIn) {
+                showStatus('Admin access required', 'error');
+                return;
+            }
+            if (!confirm('Delete ALL data?')) return;
+
+            await withSpinner(database.ref('csvUploads').remove(), 'Deleting...');
+
+            rawDataset = [];
+            filteredSortedData = [];
+            currentHeaders = [];
+            currentMetadata = null;
+            totalRowsElem.innerText = '0';
+            filteredCountSpan.innerText = '0';
+            excelContainer.style.display = 'none';
+            filterPanelArea.style.display = 'none';
+            columnManagerArea.style.display = 'none';
+            updateLastUpdatedDisplay(null);
+            showStatus('All data removed', 'success');
+
+            localStorage.removeItem(STORAGE_KEYS.FILTER_TEXTS);
+            localStorage.removeItem(STORAGE_KEYS.FILTER_SELECTED);
+            localStorage.removeItem(STORAGE_KEYS.SORT_COL);
+            localStorage.removeItem(STORAGE_KEYS.SORT_DIR);
+            localStorage.removeItem(STORAGE_KEYS.COLUMN_VISIBILITY);
+        });
+
+        // Load / Refresh
+        loadBtn.addEventListener('click', loadLatestData);
+
+        // Apply / Reset filters
+        applyAllFiltersBtn?.addEventListener('click', () => persistAndRefreshUI());
+        resetAllFiltersBtn?.addEventListener('click', () => {
+            columnSearchTexts = {};
+            columnSelectedValues = {};
+            sortConfig = { column: null, direction: 'asc' };
+            persistAndRefreshUI();
+            rebuildFilterCards();
+            showStatus('All filters reset', 'info');
+        });
+
+        // Reset column visibility
+        resetColumnVisibilityBtn?.addEventListener('click', resetColumnVisibility);
+
+        // Pagination
+        prevPageBtn?.addEventListener('click', () => {
+            if (currentPage > 1) { currentPage--;
+                renderTable(); }
+        });
+        nextPageBtn?.addEventListener('click', () => {
+            const total = Math.ceil(filteredSortedData.length / ROWS_PER_PAGE);
+            if (currentPage < total) { currentPage++;
+                renderTable(); }
+        });
+
+        // ================================================================
+        //  16. INITIALIZATION
+        // ================================================================
+        function initializeDashboard() {
+            checkExistingAdminSession();
+            if (database) loadLatestData();
+            else showStatus('Firebase issue', 'error');
+        }
+
+        (function initOnLoad() {
+            const existingSession = checkExistingUserSession();
+            if (existingSession && database) {
+                userLoginOverlay.style.display = 'none';
+                dashboardContainer.style.display = 'block';
+                currentLoggedInUser = existingSession;
+                const displayName = existingSession.fullName || existingSession.username;
+                userWelcomeBadge.innerHTML = `
+                        👋 Welcome, ${escapeHtml(displayName)}
+                        <button id="userLogoutBtn" style="background:none;border:none;color:white;cursor:pointer;margin-left:8px;">🚪 Logout</button>
+                    `;
+                userWelcomeBadge.style.display = 'inline-flex';
+
+                const logoutBtn = document.getElementById('userLogoutBtn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', () => {
+                        clearUserSession();
+                        location.reload();
+                    });
+                }
+
+                initializeDashboard();
+            } else {
+                userLoginOverlay.style.display = 'flex';
+                dashboardContainer.style.display = 'none';
+            }
+
+            userLoginBtn.addEventListener('click', handleUserLogin);
+            userLoginUsername.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleUserLogin();
+            });
+            userLoginPassword.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleUserLogin();
+            });
+        })();
+    </script>
+
 </body>
 </html>
