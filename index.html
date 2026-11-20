@@ -122,6 +122,8 @@
         .load-btn { background-color: #2c6e9e; }
         .delete-btn { background-color: #c7452c; }
         .delete-btn:hover:not(:disabled) { background-color: #a2341e; }
+        .export-btn { background-color: #1f7a4d; }
+        .export-btn:hover:not(:disabled) { background-color: #155c39; }
 
         .progress-container { margin: 18px 0; display: none; }
         .progress-bar { width: 100%; height: 28px; background-color: #e9ecef; border-radius: 30px; overflow: hidden; }
@@ -394,7 +396,7 @@
         <div class="upload-container">
             <div class="header-info">
                 <div class="title-section">
-                    <h2>📊 Product Dataset <span class="single-dataset-badge">💾 Auto‑load on refresh</span></h2>
+                    <h2>📊 Product Dataset <span class="single-dataset-badge">💾 Auto‑load after sign in</span></h2>
                 </div>
                 <div class="last-updated-section">
                     <span class="last-updated-label">🕒 Last Updated:</span>
@@ -425,7 +427,7 @@
                         <li>Choose the <b>Main Product file</b> (.csv / .xlsx / .xls).</li>
                         <li><i>(Optional)</i> Choose the <b>Branch Stock file</b> (SKU + 1001, 1002, 1006, 1007, 1008, 1010, 1011).</li>
                         <li>Click <b>Upload, Merge &amp; Load</b>. The two files are merged by SKU, saved to the database, then loaded back into the table.</li>
-                        <li>After a page refresh the saved data loads automatically — no need to upload again.</li>
+                        <li>After signing in again, the saved data loads automatically — no need to upload again.</li>
                     </ol>
                 </div>
 
@@ -443,6 +445,8 @@
                 <div class="action-bar">
                     <button id="uploadBtn">📤 Upload, Merge &amp; Load</button>
                     <button id="loadBtn" class="load-btn">🔄 Refresh from Firebase</button>
+                    <button id="exportAllBtn" class="export-btn">📥 Export All to Excel</button>
+                    <button id="exportFilteredBtn" class="export-btn">📥 Export Filtered to Excel</button>
                     <button id="deleteBtn" class="delete-btn">🗑️ Delete All Data</button>
                 </div>
 
@@ -527,9 +531,9 @@
 
         // ================================================================
         //  DATA PATH
-        //  The merged dataset is saved to /arrangedata/current and loaded
-        //  from /arrangedata (newest completed dataset). Other children of
-        //  /arrangedata are never deleted.
+        //  The merged dataset is saved to /csvUploads/current and loaded
+        //  from /csvUploads (newest completed dataset). Other children of
+        //  /csvUploads are never deleted.
         //  To use a different node, change DATA_ROOT only.
         // ================================================================
         const DATA_ROOT = 'csvUploads';
@@ -722,6 +726,9 @@
 
         // ================================================================
         //  5.  USER AUTHENTICATION
+        //  SECURITY: sessions are kept in memory only. They are never
+        //  written to localStorage, so a page reload always returns to
+        //  the sign-in screen.
         // ================================================================
         async function validateUserCredentials(username, password) {
             if (!database) throw new Error('Firebase not connected');
@@ -739,41 +746,13 @@
             return validUser;
         }
 
-        function storeUserSession(user) {
-            const session = {
-                loggedIn: true,
-                username: user.username,
-                fullName: user.fullName || user.username,
-                email: user.email || '',
-                role: user.role || 'user',
-                expiry: Date.now() + 8 * 60 * 60 * 1000
-            };
-            localStorage.setItem('csv_user_session', JSON.stringify(session));
-        }
-
-        function checkExistingUserSession() {
-            const saved = localStorage.getItem('csv_user_session');
-            if (!saved) return null;
-            try {
-                const session = JSON.parse(saved);
-                if (session.loggedIn && session.expiry > Date.now()) return session;
-                localStorage.removeItem('csv_user_session');
-            } catch (_) {
-                localStorage.removeItem('csv_user_session');
-            }
-            return null;
-        }
-
         function clearUserSession() {
-            localStorage.removeItem('csv_user_session');
             currentLoggedInUser = null;
             userWelcomeBadge.style.display = 'none';
         }
 
         async function performUserLogin(username, password) {
-            const user = await validateUserCredentials(username, password);
-            storeUserSession(user);
-            return user;
+            return await validateUserCredentials(username, password);
         }
 
         function renderUserWelcome(user) {
@@ -825,7 +804,7 @@
         }
 
         // ================================================================
-        //  6.  ADMIN AUTHENTICATION
+        //  6.  ADMIN AUTHENTICATION (in-memory only)
         // ================================================================
         async function validateAdminWithDB(username, password) {
             if (!database) throw new Error('Firebase not connected');
@@ -843,38 +822,11 @@
         }
 
         function logoutAdmin() {
-            localStorage.removeItem('csv_admin_session');
             isAdminLoggedIn = false;
             currentAdminUser = null;
             adminSection.classList.remove('visible');
             adminBadge.innerHTML = '';
             showStatus('Logged out successfully', 'info');
-        }
-
-        function checkExistingAdminSession() {
-            const saved = localStorage.getItem('csv_admin_session');
-            if (!saved) return;
-            try {
-                const session = JSON.parse(saved);
-                if (session.loggedIn && session.expiry > Date.now()) {
-                    isAdminLoggedIn = true;
-                    currentAdminUser = session.username;
-                    adminSection.classList.add('visible');
-                    adminBadge.innerHTML = `
-                        <span class="admin-logged-badge">
-                            ✅ Admin: ${escapeHtml(session.username)}
-                            <button id="logoutBtn" style="background:none;border:none;color:white;cursor:pointer;margin-left:6px;">🚪 Logout</button>
-                        </span>
-                    `;
-                    const logoutBtn = document.getElementById('logoutBtn');
-                    if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
-                    showStatus(`Welcome back, ${escapeHtml(session.username)}!`, 'success');
-                } else {
-                    localStorage.removeItem('csv_admin_session');
-                }
-            } catch (_) {
-                localStorage.removeItem('csv_admin_session');
-            }
         }
 
         function showAdminModal() {
@@ -912,12 +864,6 @@
                     isAdminLoggedIn = true;
                     currentAdminUser = adminUser.username;
 
-                    localStorage.setItem('csv_admin_session', JSON.stringify({
-                        loggedIn: true,
-                        username: adminUser.username,
-                        expiry: Date.now() + 60 * 60 * 1000
-                    }));
-
                     adminSection.classList.add('visible');
                     adminBadge.innerHTML = `
                         <span class="admin-logged-badge">
@@ -948,7 +894,7 @@
         adminLoginBtn.addEventListener('click', showAdminModal);
 
         // ================================================================
-        //  7.  PREFERENCES + DATA LOADING (from /arrangedata)
+        //  7.  PREFERENCES + DATA LOADING (from /csvUploads)
         // ================================================================
         function saveAllPreferences() {
             try {
@@ -1041,7 +987,7 @@
                     return;
                 }
 
-                // Find latest completed dataset under /arrangedata
+                // Find latest completed dataset under /csvUploads
                 let latestUpload = null;
                 snapshot.forEach(child => {
                     const val = child.val();
@@ -1186,7 +1132,7 @@
         }
 
         // ================================================================
-        //  9.  SAVE TO DATABASE  (/arrangedata/current)
+        //  9.  SAVE TO DATABASE  (/csvUploads/current)
         // ================================================================
         async function saveMergedToDatabase(merged, fileName, onProgress) {
             if (!database) throw new Error('Database not ready.');
@@ -1205,7 +1151,7 @@
             const cur = database.ref(DATA_ROOT + '/' + CURRENT_KEY);
 
             try {
-                // Replace only /arrangedata/current — other children are untouched
+                // Replace only /csvUploads/current — other children are untouched
                 await retryOperation(() => cur.child('metadata').remove(), 3, 500);
                 await retryOperation(() => cur.child('batches').remove(), 3, 500);
 
@@ -1863,7 +1809,7 @@
                     throw new Error(`Saved, but the database returned ${rawDataset.length.toLocaleString()} rows instead of ${merged.data.length.toLocaleString()}. Please try again.`);
                 }
 
-                showStatus(`✅ Saved to /${DATA_ROOT}/${CURRENT_KEY} and loaded (${mergeMsg}). It stays after a page refresh.`, 'success', true);
+                showStatus(`✅ Saved to /${DATA_ROOT}/${CURRENT_KEY} and loaded (${mergeMsg}). It loads automatically after you sign in.`, 'success', true);
             } catch (err) {
                 console.error(err);
                 showStatus('❌ ' + err.message, 'error', true);
@@ -1880,7 +1826,7 @@
             }
         });
 
-        // Delete the saved dataset (only /arrangedata/current)
+        // Delete the saved dataset (only /csvUploads/current)
         deleteBtn.addEventListener('click', async () => {
             if (!isAdminLoggedIn) {
                 showStatus('Admin access required', 'error');
@@ -1905,6 +1851,66 @@
             localStorage.removeItem(STORAGE_KEYS.SORT_DIR);
             localStorage.removeItem(STORAGE_KEYS.COLUMN_VISIBILITY);
         });
+
+        // ----- Export to Excel (.xlsx download) -----
+        async function exportToExcel(filteredOnly) {
+            if (!isAdminLoggedIn) {
+                showStatus('Admin access required', 'error');
+                return;
+            }
+            const rows = filteredOnly ? filteredSortedData : rawDataset;
+            if (!rawDataset.length || !currentHeaders.length) {
+                showStatus('No data to export. Load or upload a dataset first.', 'error');
+                return;
+            }
+            if (!rows.length) {
+                showStatus('No rows match the current filters, nothing to export.', 'error');
+                return;
+            }
+            if (typeof XLSX === 'undefined') {
+                showStatus('Excel library failed to load. Check your internet connection and reload the page.', 'error');
+                return;
+            }
+
+            showGlobalSpinner('Preparing Excel file...');
+            await new Promise(r => setTimeout(r, 50)); // let the spinner paint
+            try {
+                // Use the original (human-readable) column names when available
+                const orig = currentMetadata && Array.isArray(currentMetadata.originalHeaders)
+                    && currentMetadata.originalHeaders.length === currentHeaders.length
+                    ? currentMetadata.originalHeaders
+                    : currentHeaders;
+
+                const aoa = [orig.map(h => String(h))];
+                for (const row of rows) {
+                    aoa.push(currentHeaders.map(h => {
+                        const v = row[h];
+                        return v === undefined || v === null ? '' : v;
+                    }));
+                }
+
+                const ws = XLSX.utils.aoa_to_sheet(aoa);
+                ws['!cols'] = orig.map(h => ({ wch: Math.min(Math.max(String(h).length + 2, 10), 40) }));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Products');
+
+                const d = new Date();
+                const pad = n => String(n).padStart(2, '0');
+                const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+                const fileName = `products_${filteredOnly ? 'filtered' : 'all'}_${stamp}.xlsx`;
+
+                XLSX.writeFile(wb, fileName);
+                showStatus(`✅ Exported ${rows.length.toLocaleString()} rows to ${escapeHtml(fileName)}`, 'success');
+            } catch (err) {
+                console.error(err);
+                showStatus('❌ Export failed: ' + err.message, 'error');
+            } finally {
+                hideGlobalSpinner();
+            }
+        }
+
+        $('exportAllBtn').addEventListener('click', () => exportToExcel(false));
+        $('exportFilteredBtn').addEventListener('click', () => exportToExcel(true));
 
         // Load / Refresh
         loadBtn.addEventListener('click', () => loadLatestData());
@@ -1936,24 +1942,20 @@
         //  17. INITIALIZATION
         // ================================================================
         function initializeDashboard() {
-            checkExistingAdminSession();
             if (database) loadLatestData();
             else showStatus('Firebase issue', 'error');
         }
 
         (function initOnLoad() {
-            const existingSession = checkExistingUserSession();
+            // SECURITY: never persist sessions. Remove any left over from older
+            // versions of this page, then always start at the sign-in screen.
+            try {
+                localStorage.removeItem('csv_user_session');
+                localStorage.removeItem('csv_admin_session');
+            } catch (_) { /* ignore */ }
 
-            if (existingSession && database) {
-                userLoginOverlay.style.display = 'none';
-                dashboardContainer.style.display = 'block';
-                currentLoggedInUser = existingSession;
-                renderUserWelcome(existingSession);
-                initializeDashboard();
-            } else {
-                userLoginOverlay.style.display = 'flex';
-                dashboardContainer.style.display = 'none';
-            }
+            userLoginOverlay.style.display = 'flex';
+            dashboardContainer.style.display = 'none';
 
             userLoginBtn.addEventListener('click', handleUserLogin);
             userLoginUsername.addEventListener('keypress', (e) => {
