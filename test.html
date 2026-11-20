@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+    <title>Secure Dataset | Upload 2 Files, Merge &amp; View</title>
+
+    <!-- ===== STYLES ===== -->
+    <style>
+        /* ----- RESET & BASE ----- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        /* ----- LOGIN OVERLAY ----- */
+        .user-login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 10000; backdrop-filter: blur(2px); transition: opacity 0.4s ease;
+        }
+        .user-login-card {
+            background: white; border-radius: 48px; padding: 40px 32px;
+            width: 380px; max-width: 90%; box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            text-align: center; animation: fadeInUp 0.5s ease-out;
+        }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .user-login-card h2 { margin-bottom: 8px; color: #1e466e; font-size: 28px; }
+        .user-login-sub { color: #5f7f9e; margin-bottom: 28px; font-size: 14px; }
+        .user-login-card input {
+            width: 100%; padding: 14px 18px; margin: 12px 0;
+            border: 1.5px solid #e2e8f0; border-radius: 60px; font-size: 15px;
+            transition: 0.2s; background: #fefefe;
+        }
+        .user-login-card input:focus { outline: none; border-color: #2c6e9e; box-shadow: 0 0 0 3px rgba(44,110,158,0.2); }
+        .user-login-btn {
+            background: #2c6e9e; color: white; width: 100%; padding: 14px;
+            border: none; border-radius: 60px; font-weight: bold; font-size: 16px;
+            cursor: pointer; transition: 0.2s; margin-top: 8px;
+        }
+        .user-login-btn:hover { background: #1e4e72; transform: scale(1.01); }
+        .user-login-error {
+            color: #c7452c; background: #ffe6e5; padding: 10px;
+            border-radius: 40px; font-size: 13px; margin-top: 16px;
+        }
+        .demo-hint {
+            margin-top: 24px; font-size: 12px; color: #6c86a0;
+            background: #f8fafc; padding: 8px; border-radius: 32px;
+        }
+
+        /* ----- DASHBOARD CONTAINER ----- */
+        .dashboard-main-container { display: none; width: 100%; }
+
+        /* ----- UPLOAD CONTAINER ----- */
+        .upload-container {
+            background: white; padding: 20px 24px; margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); width: 100%;
+        }
+        .header-info {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
+            padding-bottom: 12px; border-bottom: 2px solid #e9edf2;
+        }
+        .title-section h2 { margin: 0; font-size: 1.5rem; }
+        .single-dataset-badge {
+            background: #e8f0fe; padding: 4px 12px; border-radius: 30px;
+            font-size: 11px; color: #1e466e; display: inline-flex;
+            align-items: center; gap: 6px; margin-left: 12px;
+        }
+        .last-updated-section {
+            background: #e8f0fe; padding: 8px 16px; border-radius: 40px;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px;
+        }
+        .last-updated-label { font-weight: 600; color: #1e466e; }
+        .last-updated-value { color: #2c6e9e; font-weight: 500; font-family: monospace; font-size: 13px; }
+        .refresh-indicator {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: #dff0e4; padding: 4px 10px; border-radius: 30px;
+            font-size: 11px; color: #1f6e43;
+        }
+
+        /* ----- ADMIN SECTION ----- */
+        .admin-protected { display: none; }
+        .admin-protected.visible { display: block; }
+
+        .stats-grid { display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-card {
+            flex: 1; background: linear-gradient(135deg, #f6f9fc 0%, #eef2f7 100%);
+            padding: 16px; border-radius: 20px; text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); min-width: 120px;
+        }
+        .stat-value { font-size: 32px; font-weight: 800; color: #1e466e; line-height: 1.2; }
+        .stat-label { font-size: 13px; color: #4a627a; margin-top: 6px; font-weight: 500; }
+
+        .how-it-works {
+            background: #f0f9ff; padding: 14px 18px; border-radius: 16px; margin-bottom: 16px;
+            border: 1px solid #bae6fd; font-size: 13px; color: #1f3b4c; line-height: 1.7;
+        }
+        .how-it-works ol { padding-left: 20px; margin-top: 4px; }
+        .file-block { margin-bottom: 14px; }
+        .file-block label { display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px; color: #1f3b4c; }
+        .file-block .file-info { font-size: 12px; color: #4a627a; margin-top: 4px; }
+
+        .action-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 16px 0 12px; }
+        input[type="file"] {
+            padding: 8px 12px; border: 1px solid #ccc; border-radius: 40px;
+            background: #fafafa; width: 100%;
+        }
+        button {
+            background-color: #2c6e9e; color: white; padding: 8px 18px;
+            border: none; border-radius: 40px; cursor: pointer; font-weight: 600;
+            transition: 0.2s; font-size: 13px; white-space: nowrap;
+        }
+        button:hover:not(:disabled) { background-color: #1e4e72; transform: scale(1.02); }
+        button:disabled { background-color: #b0c4de; cursor: not-allowed; transform: none; }
+        .admin-btn { background-color: #5a3e2b; margin-bottom: 12px; }
+        .admin-btn:hover { background-color: #3e2a1c; }
+        .load-btn { background-color: #2c6e9e; }
+        .delete-btn { background-color: #c7452c; }
+        .delete-btn:hover:not(:disabled) { background-color: #a2341e; }
+
+        .progress-container { margin: 18px 0; display: none; }
+        .progress-bar { width: 100%; height: 28px; background-color: #e9ecef; border-radius: 30px; overflow: hidden; }
+        .progress-fill {
+            height: 100%; background-color: #2b8c4e; transition: width 0.25s ease;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: bold; font-size: 13px;
+        }
+        .batch-info { font-size: 12px; margin-top: 6px; color: #2c5a7a; }
+
+        .status { margin: 12px 0; padding: 12px 16px; border-radius: 40px; font-size: 14px; }
+        .success { background: #dff0e4; color: #1f6e43; border-left: 5px solid #2b8c4e; }
+        .error { background: #ffe6e5; color: #bc3f2e; border-left: 5px solid #c7452c; }
+        .info { background: #e3f0fa; color: #1e6a9f; border-left: 5px solid #2c6e9e; }
+
+        /* ----- BADGES ----- */
+        .admin-logged-badge {
+            background: #2e7d32; color: white; padding: 4px 12px; border-radius: 30px;
+            font-size: 11px; margin-left: 12px; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .user-welcome-badge {
+            background: #1e466e; color: white; padding: 4px 12px; border-radius: 30px;
+            font-size: 11px; margin-left: 12px; display: inline-flex; align-items: center; gap: 6px;
+        }
+
+        /* ----- FILTER PANEL ----- */
+        .filter-panel-container {
+            background: white; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            overflow: hidden; width: 100%; border-radius: 12px; transition: all 0.2s ease;
+        }
+        .filter-panel-container.has-active-filters { background: #e8f5e9; border-left: 4px solid #2e7d32; }
+        .filter-header {
+            background: #eef2fc; padding: 12px 20px; display: flex; justify-content: space-between;
+            align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid #dce5f0;
+        }
+        .filter-header h3 {
+            margin: 0; font-size: 14px; font-weight: 600; color: #1e466e;
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        .hint-badge {
+            background: #d4e3fd; padding: 2px 10px; border-radius: 30px;
+            font-size: 11px; font-weight: normal; color: #1a4972;
+        }
+        .filter-actions { display: flex; gap: 10px; }
+        .columns-filter-grid {
+            padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 16px;
+            max-height: 320px; overflow-y: auto; background: #ffffff; scrollbar-width: thin;
+        }
+        .columns-filter-grid::-webkit-scrollbar { width: 8px; }
+        .columns-filter-grid::-webkit-scrollbar-track { background: #eef2f5; border-radius: 10px; }
+        .columns-filter-grid::-webkit-scrollbar-thumb { background: #bdc4d0; border-radius: 10px; }
+        .filter-card {
+            flex: 1 1 200px; min-width: 180px; background: #fafcff; border: 1px solid #e2e8f0;
+            border-radius: 16px; padding: 10px 12px; transition: all 0.2s ease;
+        }
+        .filter-card.has-column-filter {
+            background: #d9f0da; border-color: #81c784; box-shadow: 0 2px 6px rgba(46,125,50,0.15);
+        }
+        .filter-card label {
+            font-size: 12px; font-weight: 700; color: #2c5a7a; display: block;
+            margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .filter-card input {
+            width: 100%; padding: 8px 12px; border-radius: 30px; border: 1px solid #cbd5e1;
+            font-size: 12px; background: white; margin-bottom: 8px;
+        }
+        .filter-stats {
+            font-size: 10px; color: #5f7f9e; margin-top: 4px;
+            display: flex; justify-content: space-between;
+        }
+        .active-chips {
+            padding: 8px 20px 12px 20px; display: flex; flex-wrap: wrap; gap: 8px;
+            background: #f8fafd; border-top: 1px solid #e9edf2; font-size: 12px;
+        }
+        .filter-chip {
+            background: #e9f0f9; padding: 4px 12px; border-radius: 40px;
+            display: inline-flex; align-items: center; gap: 8px; font-size: 11px;
+        }
+        .clear-chip {
+            cursor: pointer; font-weight: bold; background: none; border: none;
+            color: #b91c1c; padding: 0 4px; font-size: 14px;
+        }
+
+        /* ----- COLUMN MANAGER ----- */
+        .column-manager {
+            background: white; padding: 10px 20px; border-bottom: 1px solid #e9edf2;
+            display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 12px;
+        }
+        .column-manager-label {
+            font-weight: 600; color: #1e466e; background: #eef2fc;
+            padding: 4px 12px; border-radius: 30px;
+        }
+        .column-toggle-group { display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%; }
+        .column-toggle-btn {
+            background: #f0f2f5; color: #1f3b4c; padding: 4px 12px; border-radius: 30px;
+            font-size: 11px; font-weight: 500; cursor: pointer;
+            border: 1px solid #d0d9e8; transition: 0.1s;
+        }
+        .column-toggle-btn.hidden-col {
+            background: #e2e8f0; color: #6c86a0; text-decoration: line-through; opacity: 0.7;
+        }
+        .column-toggle-btn.active-col { background: #2c6e9e; color: white; border-color: #2c6e9e; }
+        .reset-columns-btn { background: #6c7a89; padding: 4px 14px; font-size: 11px; }
+
+        /* ----- TABLE ----- */
+        .excel-table-container {
+            background: white; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            width: 100%; border-radius: 12px; transition: opacity 0.2s ease;
+        }
+        .table-wrapper { overflow-x: auto; max-height: 520px; overflow-y: auto; width: 100%; }
+        .data-table {
+            width: 100%; border-collapse: collapse; font-size: 13px;
+            font-family: 'Segoe UI', system-ui; min-width: 100%;
+        }
+        .data-table th {
+            background: #1f3b4c; color: white; padding: 12px 10px; position: sticky;
+            top: 0; z-index: 10; font-weight: 600; white-space: nowrap; cursor: pointer;
+        }
+        .data-table th:hover { background: #2c4e66; }
+        .th-sort { display: inline-flex; align-items: center; gap: 6px; }
+        .sort-arrow { font-size: 11px; opacity: 0.7; }
+        .data-table td { border-bottom: 1px solid #e9edf2; padding: 10px 10px; white-space: nowrap; }
+        .data-table tr:hover td { background-color: #f8fafd; }
+        .empty-placeholder { text-align: center; padding: 50px; color: #6c86a0; }
+
+        /* ----- PAGINATION ----- */
+        .pagination {
+            display: flex; justify-content: center; gap: 12px; padding: 18px;
+            background: white; border-top: 1px solid #e2e8f0;
+        }
+
+        /* ----- MODAL ----- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: flex; align-items: center;
+            justify-content: center; z-index: 2000; backdrop-filter: blur(3px);
+        }
+        .modal-content {
+            background: white; border-radius: 28px; padding: 28px 32px; width: 340px;
+            max-width: 90%; box-shadow: 0 20px 35px rgba(0,0,0,0.3); text-align: center;
+        }
+        .modal-content h3 { margin-bottom: 20px; color: #1e466e; }
+        .modal-content input {
+            width: 100%; padding: 12px 16px; margin: 10px 0;
+            border: 1px solid #ccc; border-radius: 40px; font-size: 14px;
+        }
+        .modal-buttons { display: flex; gap: 12px; margin-top: 20px; justify-content: center; }
+        .modal-buttons button { padding: 8px 20px; }
+        .error-msg { color: #c7452c; font-size: 12px; margin-top: 8px; }
+
+        /* ----- SPINNER ----- */
+        .global-spinner-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(3px);
+            display: flex; align-items: center; justify-content: center; z-index: 3000;
+        }
+        .spinner-card {
+            background: white; border-radius: 32px; padding: 28px 38px; text-align: center;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.25); display: flex;
+            flex-direction: column; align-items: center; gap: 18px;
+        }
+        .spinner {
+            width: 52px; height: 52px; border: 5px solid #e9edf2; border-top: 5px solid #2c6e9e;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .spinner-text { font-size: 15px; font-weight: 600; color: #1e466e; }
+
+        /* ----- MOBILE FILTER MODAL ----- */
+        .mobile-filter-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center; z-index: 10001;
+        }
+        .mobile-filter-modal-card {
+            background: white; border-radius: 32px; width: 90%; max-width: 360px;
+            max-height: 85vh; display: flex; flex-direction: column;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.3); animation: fadeScale 0.2s ease;
+        }
+        @keyframes fadeScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .mobile-filter-header {
+            padding: 20px 20px 12px; font-weight: 700; font-size: 18px;
+            border-bottom: 1px solid #eef2f5; color: #1e466e;
+        }
+        .mobile-filter-search { padding: 12px 20px; border-bottom: 1px solid #eef2f5; }
+        .mobile-filter-search input {
+            width: 100%; padding: 12px 16px; border-radius: 40px;
+            border: 1px solid #cbd5e1; font-size: 14px;
+        }
+        .mobile-filter-list { flex: 1; overflow-y: auto; padding: 12px 20px; max-height: 50vh; }
+        .mobile-filter-item {
+            display: flex; align-items: center; gap: 12px; padding: 10px 0;
+            border-bottom: 1px solid #f0f2f5;
+        }
+        .mobile-filter-item input { width: 20px; height: 20px; }
+        .mobile-filter-item span { font-size: 14px; color: #1f3b4c; word-break: break-word; }
+        .mobile-filter-buttons {
+            padding: 16px 20px 24px; display: flex; gap: 12px; border-top: 1px solid #eef2f5;
+        }
+        .mobile-filter-buttons button { flex: 1; padding: 12px; font-size: 14px; }
+
+        /* ----- RESPONSIVE ----- */
+        @media (max-width: 768px) {
+            .filter-card { min-width: 140px; }
+            .stat-value { font-size: 24px; }
+            .data-table th, .data-table td { padding: 8px 6px; font-size: 11px; }
+            .last-updated-section { font-size: 10px; padding: 4px 12px; }
+            .spinner-card { padding: 20px 28px; }
+            .filter-header { flex-direction: column; align-items: stretch; }
+            .filter-actions { justify-content: stretch; }
+            .filter-actions button { flex: 1; text-align: center; }
+            .columns-filter-grid { padding: 12px; gap: 12px; max-height: 360px; }
+            .filter-card { flex: 1 1 100%; min-width: auto; }
+            .filter-card input { font-size: 14px; padding: 10px 14px; }
+            .filter-stats { font-size: 11px; }
+            .column-manager { flex-direction: column; align-items: flex-start; }
+            .column-toggle-group { max-width: 100%; justify-content: flex-start; }
+            .column-toggle-btn { padding: 6px 14px; font-size: 12px; }
+            .active-chips { padding: 10px 16px; gap: 8px; }
+            .filter-chip { font-size: 12px; padding: 6px 12px; }
+        }
+        @media (max-width: 480px) {
+            .filter-header h3 { font-size: 13px; }
+            .hint-badge { font-size: 9px; }
+            .columns-filter-grid { max-height: 400px; }
+            .filter-card { padding: 8px 10px; }
+            .filter-card label { font-size: 11px; white-space: normal; word-break: break-word; }
+            .column-toggle-btn { font-size: 10px; padding: 5px 10px; }
+            .action-bar button, .action-bar input { width: 100%; text-align: center; }
+            .stats-grid .stat-card { min-width: 120px; }
+        }
+    </style>
+
+    <!-- ===== FIREBASE SDKs ===== -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <!-- ===== SHEETJS (Excel) ===== -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+
+    <!-- ===== PAPAPARSE (CSV streaming) ===== -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+
+    <!-- ============================================================ -->
+    <!--  LOGIN OVERLAY                                               -->
+    <!-- ============================================================ -->
+    <div id="userLoginOverlay" class="user-login-overlay">
+        <div class="user-login-card">
+            <h2>📊 Secure Data Portal</h2>
+            <div class="user-login-sub">Enter your credentials to access the dataset dashboard</div>
+            <input type="text" id="userLoginUsername" placeholder="Username" autocomplete="off" />
+            <input type="password" id="userLoginPassword" placeholder="Password" />
+            <button id="userLoginSubmitBtn" class="user-login-btn">🔐 Sign In</button>
+            <div id="userLoginErrorMsg" class="user-login-error" style="display: none;"></div>
+            <div class="demo-hint">
+                💡 Demo credentials: <strong>admin</strong> / <strong>admin123</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  DASHBOARD                                                   -->
+    <!-- ============================================================ -->
+    <div id="dashboardMainContainer" class="dashboard-main-container">
+
+        <!-- ---- UPLOAD CONTAINER ---- -->
+        <div class="upload-container">
+            <div class="header-info">
+                <div class="title-section">
+                    <h2>📊 Product Dataset <span class="single-dataset-badge">💾 Auto‑load on refresh</span></h2>
+                </div>
+                <div class="last-updated-section">
+                    <span class="last-updated-label">🕒 Last Updated:</span>
+                    <span class="last-updated-value" id="lastUpdatedTime">—</span>
+                    <span class="refresh-indicator" id="refreshIndicator">🔄 Auto-sync</span>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+                <div id="userWelcomeBadge" class="user-welcome-badge" style="display:none;"></div>
+                <button id="adminLoginBtn" class="admin-btn">🔐 Admin Login</button>
+            </div>
+
+            <div id="adminBadge"></div>
+
+            <!-- Admin Protected Section -->
+            <div id="adminSection" class="admin-protected">
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-value" id="totalRows">0</div><div class="stat-label">Total Rows in DB</div></div>
+                    <div class="stat-card"><div class="stat-value" id="uploadSpeed">0</div><div class="stat-label">Rows/Second (upload)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="batchProgress">0</div><div class="stat-label">Batches Completed</div></div>
+                    <div class="stat-card"><div class="stat-value" id="filteredCount">—</div><div class="stat-label">Filtered Rows</div></div>
+                </div>
+
+                <div class="how-it-works">
+                    <strong>📌 How it works</strong>
+                    <ol>
+                        <li>Choose the <b>Main Product file</b> (.csv / .xlsx / .xls).</li>
+                        <li><i>(Optional)</i> Choose the <b>Branch Stock file</b> (SKU + 1001, 1002, 1006, 1007, 1008, 1010, 1011).</li>
+                        <li>Click <b>Upload, Merge &amp; Load</b>. The two files are merged by SKU, saved to the database, then loaded back into the table.</li>
+                        <li>After a page refresh the saved data loads automatically — no need to upload again.</li>
+                    </ol>
+                </div>
+
+                <div class="file-block">
+                    <label for="mainFile">1️⃣ Main Product file</label>
+                    <input type="file" id="mainFile" accept=".csv, .xlsx, .xls, .xlsm" />
+                    <div class="file-info" id="mainFileInfo"></div>
+                </div>
+                <div class="file-block">
+                    <label for="branchFile">2️⃣ Branch Stock file — optional</label>
+                    <input type="file" id="branchFile" accept=".csv, .xlsx, .xls, .xlsm" />
+                    <div class="file-info" id="branchFileInfo"></div>
+                </div>
+
+                <div class="action-bar">
+                    <button id="uploadBtn">📤 Upload, Merge &amp; Load</button>
+                    <button id="loadBtn" class="load-btn">🔄 Refresh from Firebase</button>
+                    <button id="deleteBtn" class="delete-btn">🗑️ Delete All Data</button>
+                </div>
+
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar"><div class="progress-fill" id="progressFill">0%</div></div>
+                    <div class="batch-info" id="batchInfo"></div>
+                </div>
+
+                <div id="status"></div>
+            </div>
+        </div>
+
+        <!-- ---- FILTER PANEL ---- -->
+        <div id="filterPanelArea" style="display:none;">
+            <div class="filter-panel-container" id="mainFilterContainer">
+                <div class="filter-header">
+                    <h3>🔍 Column Filters <span class="hint-badge">✨ Hint Match: "flower" matches "flowers", "flowering"</span></h3>
+                    <div class="filter-actions">
+                        <button id="applyAllFiltersBtn">Apply Filters</button>
+                        <button id="resetAllFiltersBtn" class="clear-all-btn">Reset All Filters</button>
+                    </div>
+                </div>
+                <div id="dynamicFilterCards" class="columns-filter-grid"></div>
+                <div id="activeFilterChips" class="active-chips"></div>
+            </div>
+        </div>
+
+        <!-- ---- COLUMN MANAGER ---- -->
+        <div id="columnManagerArea" style="display:none;">
+            <div class="column-manager">
+                <span class="column-manager-label">👁️ Show/Hide Columns</span>
+                <div id="columnToggleGroup" class="column-toggle-group"></div>
+                <button id="resetColumnVisibilityBtn" class="reset-columns-btn">Reset All Columns</button>
+            </div>
+        </div>
+
+        <!-- ---- TABLE ---- -->
+        <div class="excel-table-container" id="excelTableContainer" style="display:none;">
+            <div class="table-wrapper">
+                <table class="data-table" id="dataTable">
+                    <thead id="tableHeader"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination" style="display:none;">
+                <button id="prevPage">◀ Previous</button>
+                <span class="page-info" id="pageInfo">Page 1</span>
+                <button id="nextPage">Next ▶</button>
+            </div>
+        </div>
+
+    </div>
+    <!-- /dashboard-main-container -->
+
+
+    <!-- ============================================================ -->
+    <!--  JAVASCRIPT                                                  -->
+    <!-- ============================================================ -->
+    <script>
+        // ================================================================
+        //  1.  FIREBASE CONFIG
+        // ================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAbEQB9kQUAqS0eAlNGUx4Al_CsrhZ-Y58",
+            authDomain: "mmsdata-44117.firebaseapp.com",
+            databaseURL: "https://mmsdata-44117-default-rtdb.firebaseio.com",
+            projectId: "mmsdata-44117",
+            storageBucket: "mmsdata-44117.firebasestorage.app",
+            messagingSenderId: "525548358076",
+            appId: "1:525548358076:web:55375641f966d7966083b9",
+            measurementId: "G-85BC57T8R5"
+        };
+
+        let database = null;
+        try {
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            console.log("✅ Firebase ready");
+        } catch (e) {
+            console.warn(e);
+        }
+
+        // ================================================================
+        //  DATA PATH
+        //  The merged dataset is saved to /arrangedata/current and loaded
+        //  from /arrangedata (newest completed dataset). Other children of
+        //  /arrangedata are never deleted.
+        //  To use a different node, change DATA_ROOT only.
+        // ================================================================
+        const DATA_ROOT = 'csvUploads';
+        const CURRENT_KEY = 'current';
+        const BRANCH_CODES = ["1001", "1002", "1006", "1007", "1008", "1010", "1011"];
+
+        // ================================================================
+        //  2.  STATE
+        // ================================================================
+        const STORAGE_KEYS = {
+            FILTER_TEXTS: 'csv_persist_filter_texts',
+            FILTER_SELECTED: 'csv_persist_filter_selected',
+            SORT_COL: 'csv_persist_sort_col',
+            SORT_DIR: 'csv_persist_sort_dir',
+            COLUMN_VISIBILITY: 'csv_persist_column_visibility'
+        };
+
+        let rawDataset = [];
+        let currentHeaders = [];
+        let filteredSortedData = [];
+        let currentPage = 1;
+        const ROWS_PER_PAGE = 100;
+
+        let columnSearchTexts = {};
+        let columnSelectedValues = {};
+        let sortConfig = { column: null, direction: 'asc' };
+        let columnVisibility = {};
+
+        let currentMetadata = null;
+        let currentLoggedInUser = null;
+        let isAdminLoggedIn = false;
+        let currentAdminUser = null;
+        let activeSpinner = null;
+        let activeDropdown = null;
+        let filterInputTimer = null;
+
+        // ================================================================
+        //  3.  DOM REFS
+        // ================================================================
+        const $ = (id) => document.getElementById(id);
+
+        const userLoginOverlay = $('userLoginOverlay');
+        const dashboardContainer = $('dashboardMainContainer');
+        const userLoginUsername = $('userLoginUsername');
+        const userLoginPassword = $('userLoginPassword');
+        const userLoginBtn = $('userLoginSubmitBtn');
+        const userLoginError = $('userLoginErrorMsg');
+        const userWelcomeBadge = $('userWelcomeBadge');
+
+        const mainFileInput = $('mainFile');
+        const branchFileInput = $('branchFile');
+        const mainFileInfo = $('mainFileInfo');
+        const branchFileInfo = $('branchFileInfo');
+        const uploadBtn = $('uploadBtn');
+        const loadBtn = $('loadBtn');
+        const deleteBtn = $('deleteBtn');
+        const statusDiv = $('status');
+        const progressContainer = $('progressContainer');
+        const progressFill = $('progressFill');
+        const batchInfo = $('batchInfo');
+        const totalRowsElem = $('totalRows');
+        const uploadSpeedElem = $('uploadSpeed');
+        const batchProgressElem = $('batchProgress');
+        const filteredCountSpan = $('filteredCount');
+        const excelContainer = $('excelTableContainer');
+        const filterPanelArea = $('filterPanelArea');
+        const columnManagerArea = $('columnManagerArea');
+        const dynamicFilterCards = $('dynamicFilterCards');
+        const activeFilterChips = $('activeFilterChips');
+        const tableHeader = $('tableHeader');
+        const tableBody = $('tableBody');
+        const mainFilterContainer = $('mainFilterContainer');
+        const columnToggleGroup = $('columnToggleGroup');
+        const resetColumnVisibilityBtn = $('resetColumnVisibilityBtn');
+        const adminSection = $('adminSection');
+        const adminLoginBtn = $('adminLoginBtn');
+        const adminBadge = $('adminBadge');
+        const lastUpdatedTimeSpan = $('lastUpdatedTime');
+        const applyAllFiltersBtn = $('applyAllFiltersBtn');
+        const resetAllFiltersBtn = $('resetAllFiltersBtn');
+        const prevPageBtn = $('prevPage');
+        const nextPageBtn = $('nextPage');
+        const pageInfo = $('pageInfo');
+
+        // ================================================================
+        //  4.  UTILITY FUNCTIONS
+        // ================================================================
+        function escapeHtml(str) {
+            if (!str && str !== 0) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '—';
+            try {
+                const d = new Date(timestamp);
+                return d.toLocaleString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+                });
+            } catch (_) {
+                return String(timestamp);
+            }
+        }
+
+        // Works for numeric timestamps (Date.now()) and old ISO strings
+        function tsOf(v) {
+            if (typeof v === 'number') return v;
+            const n = Number(v);
+            if (!isNaN(n) && v !== '' && v !== null) return n;
+            const p = Date.parse(v);
+            return isNaN(p) ? 0 : p;
+        }
+
+        function sanitizeFirebaseKey(key) {
+            return String(key).replace(/[\.#\$\/\[\]]/g, '_').trim() || '_';
+        }
+
+        function updateLastUpdatedDisplay(meta) {
+            if (meta && meta.timestamp) {
+                lastUpdatedTimeSpan.innerHTML =
+                    `${formatTimestamp(tsOf(meta.timestamp))} <span style="font-size:10px;opacity:0.7;">(${escapeHtml(meta.fileName || 'CSV')})</span>`;
+            } else {
+                lastUpdatedTimeSpan.textContent = '—';
+            }
+        }
+
+        let statusTimer = null;
+        function showStatus(msg, type, sticky) {
+            if (!statusDiv) return;
+            statusDiv.innerHTML = msg;
+            statusDiv.className = `status ${type}`;
+            clearTimeout(statusTimer);
+            if (!sticky) {
+                statusTimer = setTimeout(() => {
+                    if (statusDiv.innerHTML === msg) statusDiv.innerHTML = '';
+                }, 6000);
+            }
+        }
+
+        // ----- SPINNER -----
+        function showGlobalSpinner(message = 'Loading data...') {
+            if (activeSpinner) hideGlobalSpinner();
+            const overlay = document.createElement('div');
+            overlay.className = 'global-spinner-overlay';
+            overlay.innerHTML = `
+                <div class="spinner-card">
+                    <div class="spinner"></div>
+                    <div class="spinner-text">${escapeHtml(message)}</div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            activeSpinner = overlay;
+        }
+
+        function hideGlobalSpinner() {
+            if (activeSpinner) {
+                activeSpinner.remove();
+                activeSpinner = null;
+            }
+        }
+
+        function withSpinner(promise, message = 'Processing...') {
+            showGlobalSpinner(message);
+            return promise.finally(() => hideGlobalSpinner());
+        }
+
+        // ----- Retry helper -----
+        async function retryOperation(fn, retries = 3, delay = 500) {
+            let lastError;
+            for (let attempt = 0; attempt < retries; attempt++) {
+                try {
+                    return await fn();
+                } catch (err) {
+                    lastError = err;
+                    if (/permission/i.test(err && err.message || '')) throw err;
+                    if (attempt < retries - 1) {
+                        const wait = delay * Math.pow(2, attempt) + Math.random() * 200;
+                        await new Promise(r => setTimeout(r, wait));
+                    }
+                }
+            }
+            throw lastError || new Error('Operation failed after retries');
+        }
+
+        // ================================================================
+        //  5.  USER AUTHENTICATION
+        // ================================================================
+        async function validateUserCredentials(username, password) {
+            if (!database) throw new Error('Firebase not connected');
+            const snapshot = await database.ref('adminUsers').orderByChild('username').equalTo(username).once('value');
+            if (!snapshot.exists()) throw new Error('Invalid username or password');
+
+            let validUser = null;
+            snapshot.forEach(child => {
+                const u = child.val();
+                if (u.username === username && u.password === password) {
+                    validUser = { id: child.key, ...u };
+                }
+            });
+            if (!validUser) throw new Error('Invalid username or password');
+            return validUser;
+        }
+
+        function storeUserSession(user) {
+            const session = {
+                loggedIn: true,
+                username: user.username,
+                fullName: user.fullName || user.username,
+                email: user.email || '',
+                role: user.role || 'user',
+                expiry: Date.now() + 8 * 60 * 60 * 1000
+            };
+            localStorage.setItem('csv_user_session', JSON.stringify(session));
+        }
+
+        function checkExistingUserSession() {
+            const saved = localStorage.getItem('csv_user_session');
+            if (!saved) return null;
+            try {
+                const session = JSON.parse(saved);
+                if (session.loggedIn && session.expiry > Date.now()) return session;
+                localStorage.removeItem('csv_user_session');
+            } catch (_) {
+                localStorage.removeItem('csv_user_session');
+            }
+            return null;
+        }
+
+        function clearUserSession() {
+            localStorage.removeItem('csv_user_session');
+            currentLoggedInUser = null;
+            userWelcomeBadge.style.display = 'none';
+        }
+
+        async function performUserLogin(username, password) {
+            const user = await validateUserCredentials(username, password);
+            storeUserSession(user);
+            return user;
+        }
+
+        function renderUserWelcome(user) {
+            const displayName = user.fullName || user.username;
+            userWelcomeBadge.innerHTML = `
+                👋 Welcome, ${escapeHtml(displayName)}
+                <button id="userLogoutBtn" style="background:none;border:none;color:white;cursor:pointer;margin-left:8px;">🚪 Logout</button>
+            `;
+            userWelcomeBadge.style.display = 'inline-flex';
+
+            const logoutBtn = document.getElementById('userLogoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    clearUserSession();
+                    location.reload();
+                });
+            }
+        }
+
+        function showDashboardAfterLogin(user) {
+            currentLoggedInUser = user;
+            userLoginOverlay.style.display = 'none';
+            dashboardContainer.style.display = 'block';
+            renderUserWelcome(user);
+            initializeDashboard();
+        }
+
+        async function handleUserLogin() {
+            const username = userLoginUsername.value.trim();
+            const password = userLoginPassword.value;
+            if (!username || !password) {
+                userLoginError.style.display = 'block';
+                userLoginError.textContent = 'Please enter username and password';
+                return;
+            }
+            userLoginBtn.disabled = true;
+            userLoginBtn.textContent = 'Verifying...';
+            userLoginError.style.display = 'none';
+
+            try {
+                const user = await performUserLogin(username, password);
+                showDashboardAfterLogin(user);
+            } catch (err) {
+                userLoginError.style.display = 'block';
+                userLoginError.textContent = err.message;
+                userLoginBtn.disabled = false;
+                userLoginBtn.textContent = '🔐 Sign In';
+            }
+        }
+
+        // ================================================================
+        //  6.  ADMIN AUTHENTICATION
+        // ================================================================
+        async function validateAdminWithDB(username, password) {
+            if (!database) throw new Error('Firebase not connected');
+            const snapshot = await database.ref('adminUsers').orderByChild('username').equalTo(username).once('value');
+            if (!snapshot.exists()) throw new Error('Admin account not found.');
+
+            let matched = null;
+            snapshot.forEach(child => {
+                const u = child.val();
+                if (u.username === username) matched = { id: child.key, ...u };
+            });
+            if (!matched) throw new Error('Invalid credentials');
+            if (matched.password !== password) throw new Error('Incorrect password');
+            return matched;
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('csv_admin_session');
+            isAdminLoggedIn = false;
+            currentAdminUser = null;
+            adminSection.classList.remove('visible');
+            adminBadge.innerHTML = '';
+            showStatus('Logged out successfully', 'info');
+        }
+
+        function checkExistingAdminSession() {
+            const saved = localStorage.getItem('csv_admin_session');
+            if (!saved) return;
+            try {
+                const session = JSON.parse(saved);
+                if (session.loggedIn && session.expiry > Date.now()) {
+                    isAdminLoggedIn = true;
+                    currentAdminUser = session.username;
+                    adminSection.classList.add('visible');
+                    adminBadge.innerHTML = `
+                        <span class="admin-logged-badge">
+                            ✅ Admin: ${escapeHtml(session.username)}
+                            <button id="logoutBtn" style="background:none;border:none;color:white;cursor:pointer;margin-left:6px;">🚪 Logout</button>
+                        </span>
+                    `;
+                    const logoutBtn = document.getElementById('logoutBtn');
+                    if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
+                    showStatus(`Welcome back, ${escapeHtml(session.username)}!`, 'success');
+                } else {
+                    localStorage.removeItem('csv_admin_session');
+                }
+            } catch (_) {
+                localStorage.removeItem('csv_admin_session');
+            }
+        }
+
+        function showAdminModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3>🔐 Admin Login</h3>
+                    <input type="text" id="adminUsername" placeholder="Username" />
+                    <input type="password" id="adminPassword" placeholder="Password" />
+                    <div id="modalError" class="error-msg"></div>
+                    <div class="modal-buttons">
+                        <button id="modalLoginBtn">Login</button>
+                        <button id="modalCancelBtn">Cancel</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            const usernameInput = modal.querySelector('#adminUsername');
+            const passwordInput = modal.querySelector('#adminPassword');
+            const loginBtnModal = modal.querySelector('#modalLoginBtn');
+            const cancelBtn = modal.querySelector('#modalCancelBtn');
+            const errorDiv = modal.querySelector('#modalError');
+
+            const tryLogin = async () => {
+                const user = usernameInput.value.trim();
+                const pass = passwordInput.value;
+                if (!user || !pass) { errorDiv.textContent = 'Please enter credentials'; return; }
+                loginBtnModal.disabled = true;
+                loginBtnModal.textContent = 'Verifying...';
+
+                try {
+                    const adminUser = await validateAdminWithDB(user, pass);
+                    isAdminLoggedIn = true;
+                    currentAdminUser = adminUser.username;
+
+                    localStorage.setItem('csv_admin_session', JSON.stringify({
+                        loggedIn: true,
+                        username: adminUser.username,
+                        expiry: Date.now() + 60 * 60 * 1000
+                    }));
+
+                    adminSection.classList.add('visible');
+                    adminBadge.innerHTML = `
+                        <span class="admin-logged-badge">
+                            ✅ Admin: ${escapeHtml(adminUser.username)}
+                            <button id="logoutBtn" style="background:none;border:none;color:white;cursor:pointer;">🚪 Logout</button>
+                        </span>
+                    `;
+                    const logoutBtn = document.getElementById('logoutBtn');
+                    if (logoutBtn) logoutBtn.addEventListener('click', logoutAdmin);
+
+                    showStatus(`Admin access granted. Welcome ${escapeHtml(adminUser.username)}!`, 'success');
+                    modal.remove();
+                    if (rawDataset.length === 0 && database) loadLatestData();
+                } catch (err) {
+                    errorDiv.textContent = err.message;
+                } finally {
+                    loginBtnModal.disabled = false;
+                    loginBtnModal.textContent = 'Login';
+                }
+            };
+
+            loginBtnModal.addEventListener('click', tryLogin);
+            cancelBtn.addEventListener('click', () => modal.remove());
+            usernameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') tryLogin(); });
+            passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') tryLogin(); });
+        }
+
+        adminLoginBtn.addEventListener('click', showAdminModal);
+
+        // ================================================================
+        //  7.  PREFERENCES + DATA LOADING (from /arrangedata)
+        // ================================================================
+        function saveAllPreferences() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.FILTER_TEXTS, JSON.stringify(columnSearchTexts));
+
+                const selSer = {};
+                for (const col in columnSelectedValues) {
+                    if (columnSelectedValues[col]?.size) {
+                        selSer[col] = Array.from(columnSelectedValues[col]);
+                    }
+                }
+                localStorage.setItem(STORAGE_KEYS.FILTER_SELECTED, JSON.stringify(selSer));
+                localStorage.setItem(STORAGE_KEYS.SORT_COL, sortConfig.column || '');
+                localStorage.setItem(STORAGE_KEYS.SORT_DIR, sortConfig.direction);
+                localStorage.setItem(STORAGE_KEYS.COLUMN_VISIBILITY, JSON.stringify(columnVisibility));
+            } catch (_) { /* ignore */ }
+        }
+
+        function loadPreferencesIntoState() {
+            try {
+                columnSearchTexts = {};
+                columnSelectedValues = {};
+                columnVisibility = {};
+
+                const texts = localStorage.getItem(STORAGE_KEYS.FILTER_TEXTS);
+                if (texts) {
+                    const p = JSON.parse(texts);
+                    for (const h of currentHeaders) {
+                        if (p[h]) columnSearchTexts[h] = p[h];
+                    }
+                }
+
+                const sel = localStorage.getItem(STORAGE_KEYS.FILTER_SELECTED);
+                if (sel) {
+                    const p = JSON.parse(sel);
+                    for (const h of currentHeaders) {
+                        if (p[h] && Array.isArray(p[h])) {
+                            columnSelectedValues[h] = new Set(p[h]);
+                        }
+                    }
+                }
+
+                const sc = localStorage.getItem(STORAGE_KEYS.SORT_COL);
+                const sd = localStorage.getItem(STORAGE_KEYS.SORT_DIR);
+                if (sc && currentHeaders.includes(sc)) {
+                    sortConfig = { column: sc, direction: (sd === 'asc' || sd === 'desc') ? sd : 'asc' };
+                } else {
+                    sortConfig = { column: null, direction: 'asc' };
+                }
+
+                const vis = localStorage.getItem(STORAGE_KEYS.COLUMN_VISIBILITY);
+                if (vis) {
+                    const p = JSON.parse(vis);
+                    for (const h of currentHeaders) {
+                        columnVisibility[h] = p[h] !== undefined ? p[h] : true;
+                    }
+                } else {
+                    currentHeaders.forEach(h => columnVisibility[h] = true);
+                }
+            } catch (_) { /* ignore */ }
+        }
+
+        function clearEmptyView(message) {
+            tableBody.innerHTML = `<tr><td colspan="100" class="empty-placeholder">${escapeHtml(message)}</td></tr>`;
+            rawDataset = [];
+            filteredSortedData = [];
+            currentHeaders = [];
+            totalRowsElem.innerText = '0';
+            filteredCountSpan.innerText = '0';
+            excelContainer.style.display = 'none';
+            filterPanelArea.style.display = 'none';
+            columnManagerArea.style.display = 'none';
+            updateLastUpdatedDisplay(null);
+        }
+
+        // Returns true when a dataset was loaded and shown
+        async function loadLatestData() {
+            if (!database) {
+                showStatus('Firebase not ready', 'error');
+                return false;
+            }
+
+            let loaded = false;
+            await withSpinner((async () => {
+                if (loadBtn) loadBtn.disabled = true;
+
+                const snapshot = await database.ref(DATA_ROOT).once('value');
+                if (!snapshot.exists()) {
+                    clearEmptyView('📭 No data. Upload the two files (Admin only).');
+                    return;
+                }
+
+                // Find latest completed dataset under /arrangedata
+                let latestUpload = null;
+                snapshot.forEach(child => {
+                    const val = child.val();
+                    if (val && val.metadata && val.metadata.completed) {
+                        const ts = tsOf(val.metadata.timestamp);
+                        if (!latestUpload || ts > latestUpload.ts) {
+                            latestUpload = { id: child.key, metadata: val.metadata, batches: val.batches || {}, ts };
+                        }
+                    }
+                });
+
+                if (!latestUpload) {
+                    clearEmptyView('📭 No completed dataset found under /' + DATA_ROOT + '.');
+                    return;
+                }
+
+                // Load all rows in the correct batch order
+                const batches = latestUpload.batches;
+                const batchKeys = Object.keys(batches).sort((a, b) =>
+                    (parseInt(String(a).replace(/\D+/g, ''), 10) || 0) - (parseInt(String(b).replace(/\D+/g, ''), 10) || 0));
+                const allRows = [];
+
+                const totalBatches = batchKeys.length;
+                let loadedBatches = 0;
+
+                for (const key of batchKeys) {
+                    const b = batches[key];
+                    if (b && b.data) {
+                        const arr = Array.isArray(b.data) ? b.data : Object.values(b.data);
+                        for (const r of arr) allRows.push(r);
+                    }
+                    loadedBatches++;
+                    if (loadedBatches % 5 === 0 || loadedBatches === totalBatches) {
+                        const pct = Math.round((loadedBatches / totalBatches) * 100);
+                        batchInfo.textContent = `Loading data... ${loadedBatches}/${totalBatches} batches (${pct}%)`;
+                        progressContainer.style.display = 'block';
+                        progressFill.style.width = pct + '%';
+                        progressFill.textContent = pct + '%';
+                    }
+                    if (loadedBatches % 10 === 0) await new Promise(r => setTimeout(r, 5));
+                }
+
+                progressContainer.style.display = 'none';
+                progressFill.style.width = '0%';
+                progressFill.textContent = '0%';
+                batchInfo.textContent = '';
+
+                if (!allRows.length) throw new Error('Dataset is empty or has no batches.');
+
+                rawDataset = allRows;
+                currentMetadata = latestUpload.metadata;
+                currentHeaders = (Array.isArray(latestUpload.metadata.headers) && latestUpload.metadata.headers.length)
+                    ? latestUpload.metadata.headers.slice()
+                    : Object.keys(rawDataset[0] || {});
+
+                totalRowsElem.innerText = rawDataset.length.toLocaleString();
+                updateLastUpdatedDisplay(currentMetadata);
+
+                loadPreferencesIntoState();
+                applyFiltersAndSort();
+                currentPage = 1;
+
+                excelContainer.style.display = 'block';
+                filterPanelArea.style.display = 'block';
+                columnManagerArea.style.display = 'block';
+
+                rebuildFilterCards();
+                renderColumnManager();
+                renderTable();
+                updateFilterChipsDisplay();
+
+                loaded = true;
+            })(), 'Loading dataset...')
+                .catch(err => {
+                    console.error(err);
+                    showStatus('Load error: ' + err.message, 'error');
+                    progressContainer.style.display = 'none';
+                })
+                .finally(() => {
+                    if (loadBtn) loadBtn.disabled = false;
+                });
+
+            return loaded;
+        }
+
+        // ================================================================
+        //  8.  MERGE TWO FILES (Main Product + Branch Stock, joined by SKU)
+        // ================================================================
+        function findSkuColumn(headers) {
+            for (const n of ['sku', 'stock code', 'stockcode', 'item code', 'itemcode', 'product code']) {
+                const f = headers.find(x => String(x).trim().toLowerCase() === n);
+                if (f) return f;
+            }
+            return null;
+        }
+
+        function findBranchColumn(headers, code) {
+            return headers.find(x => String(x).trim() === code) || null;
+        }
+
+        function mergeDatasets(main, branch) {
+            if (!main.headers.length) throw new Error('Main file has no headers.');
+            if (!branch.headers.length) throw new Error('Branch file has no headers.');
+            const ns = v => String(v === null || v === undefined ? '' : v).trim().replace(/\.0+$/, '');
+            const mk = findSkuColumn(main.headers), bk = findSkuColumn(branch.headers);
+            if (!mk) throw new Error('Main file has no SKU column (SKU / STOCK CODE / ITEM CODE).');
+            if (!bk) throw new Error('Branch file has no SKU column (SKU / STOCK CODE / ITEM CODE).');
+            const bcols = BRANCH_CODES.filter(bc => findBranchColumn(branch.headers, bc) !== null);
+            if (!bcols.length) throw new Error('Branch file has none of: ' + BRANCH_CODES.join(', '));
+
+            const lookup = {};
+            for (const row of branch.data) {
+                const sku = ns(row[bk]);
+                if (!sku) continue;
+                const e = {};
+                for (const bc of bcols) {
+                    const c = findBranchColumn(branch.headers, bc);
+                    e[bc] = row[c] !== undefined ? row[c] : '';
+                }
+                lookup[sku] = e;
+            }
+
+            const mh = main.headers.slice();
+            const append = bcols.filter(bc => !mh.some(h => String(h).trim() === bc));
+            const out = [...mh, ...append];
+            let matched = 0;
+            const data = main.data.map(row => {
+                const bv = lookup[ns(row[mk])];
+                if (bv) matched++;
+                const o = { ...row };
+                for (const bc of bcols) {
+                    if (Object.prototype.hasOwnProperty.call(row, bc) || append.includes(bc)) {
+                        o[bc] = bv && bv[bc] !== undefined ? bv[bc] : (row[bc] !== undefined ? row[bc] : '');
+                    }
+                }
+                return o;
+            });
+            return {
+                headers: out, data,
+                stats: { totalMain: main.data.length, totalBranch: branch.data.length, matched, branchCols: bcols }
+            };
+        }
+
+        // ================================================================
+        //  9.  SAVE TO DATABASE  (/arrangedata/current)
+        // ================================================================
+        async function saveMergedToDatabase(merged, fileName, onProgress) {
+            if (!database) throw new Error('Database not ready.');
+            if (!isAdminLoggedIn) throw new Error('Admin access required.');
+
+            const orig = merged.headers;
+            const seen = {};
+            const safe = orig.map(h => {
+                const k = sanitizeFirebaseKey(h);
+                seen[k] = (seen[k] || 0) + 1;
+                return seen[k] > 1 ? k + '_' + seen[k] : k;
+            });
+
+            const BATCH_SIZE = 500;
+            const totalBatches = Math.ceil(merged.data.length / BATCH_SIZE);
+            const cur = database.ref(DATA_ROOT + '/' + CURRENT_KEY);
+
+            try {
+                // Replace only /arrangedata/current — other children are untouched
+                await retryOperation(() => cur.child('metadata').remove(), 3, 500);
+                await retryOperation(() => cur.child('batches').remove(), 3, 500);
+
+                const CONCURRENT_BATCHES = 4;
+                let completedBatches = 0;
+                const startTime = Date.now();
+
+                for (let i = 0; i < totalBatches; i += CONCURRENT_BATCHES) {
+                    const promises = [];
+                    for (let j = 0; j < CONCURRENT_BATCHES && i + j < totalBatches; j++) {
+                        const batchIndex = i + j;
+                        const start = batchIndex * BATCH_SIZE;
+                        const end = Math.min(start + BATCH_SIZE, merged.data.length);
+                        const rows = merged.data.slice(start, end).map(r => {
+                            const o = {};
+                            orig.forEach((h, idx) => {
+                                const v = r[h];
+                                o[safe[idx]] = (v === undefined || v === null) ? '' : String(v);
+                            });
+                            return o;
+                        });
+                        promises.push(retryOperation(() =>
+                            cur.child('batches').child('batch_' + (batchIndex + 1)).set({ index: batchIndex, data: rows }), 4, 600));
+                    }
+
+                    const results = await Promise.allSettled(promises);
+                    const failed = results.find(r => r.status === 'rejected');
+                    if (failed) throw failed.reason || new Error('A batch failed to save.');
+                    completedBatches += results.length;
+
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    const speed = elapsed > 0 ? Math.round((completedBatches * BATCH_SIZE) / elapsed) : 0;
+                    if (onProgress) {
+                        onProgress({
+                            completedBatches, totalBatches, speed,
+                            percentage: Math.min((completedBatches / totalBatches) * 100, 100)
+                        });
+                    }
+                    if (i % 10 === 0) await new Promise(r => setTimeout(r, 5));
+                }
+
+                // Metadata is written LAST with completed:true, so a half-finished
+                // upload is never loaded by anyone.
+                await retryOperation(() => cur.child('metadata').set({
+                    completed: true,
+                    timestamp: Date.now(),
+                    headers: safe,
+                    originalHeaders: orig,
+                    totalRows: merged.data.length,
+                    fileName,
+                    batchSize: BATCH_SIZE,
+                    totalBatches
+                }), 3, 500);
+
+                const totalTime = (Date.now() - startTime) / 1000;
+                return {
+                    totalBatches, totalTime,
+                    avgSpeed: totalTime > 0 ? Math.round(merged.data.length / totalTime) : 0
+                };
+            } catch (e) {
+                if (/permission/i.test(e && e.message || '')) {
+                    throw new Error('Firebase denied the write. Update your Realtime Database rules to allow writes to "' + DATA_ROOT + '".');
+                }
+                throw e;
+            }
+        }
+
+        // ================================================================
+        //  10. FILE PARSING (PAPAPARSE FOR CSV / SHEETJS FOR EXCEL)
+        // ================================================================
+        async function parseFileToObjects(file) {
+            const fileName = file.name.toLowerCase();
+
+            if (fileName.endsWith('.csv')) {
+                return new Promise((resolve, reject) => {
+                    const results = [];
+                    let headers = [];
+                    let isFirstRow = true;
+
+                    Papa.parse(file, {
+                        step: function (row) {
+                            const data = row.data;
+                            if (isFirstRow) {
+                                headers = data.map(h => String(h).trim());
+                                isFirstRow = false;
+                                return;
+                            }
+                            if (data.length === 0 || data.every(v => v === '')) return;
+                            const obj = {};
+                            headers.forEach((h, idx) => {
+                                if (!h) return;
+                                obj[h] = data[idx] !== undefined ? String(data[idx]).trim() : '';
+                            });
+                            results.push(obj);
+                        },
+                        complete: function () {
+                            resolve({ headers: headers.filter(Boolean), data: results });
+                        },
+                        error: function (err) {
+                            reject(new Error('CSV parsing error: ' + (err?.message || err)));
+                        },
+                        skipEmptyLines: true
+                    });
+                });
+            }
+
+            // Excel
+            const ab = await file.arrayBuffer();
+            const workbook = XLSX.read(ab);
+            if (!workbook.SheetNames.length) throw new Error(file.name + ' has no sheets.');
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+            const headers = Object.keys(jsonData[0] || {});
+            const data = jsonData.map(row => {
+                const obj = {};
+                headers.forEach(h => obj[h] = row[h] !== undefined ? String(row[h]) : '');
+                return obj;
+            });
+            return { headers, data };
+        }
+
+        // ================================================================
+        //  11. FILTER & SORT ENGINE
+        // ================================================================
+        function isHintMatch(cellValue, searchRaw) {
+            if (!searchRaw || searchRaw.trim() === '') return true;
+            const cellStr = String(cellValue).toLowerCase().trim();
+            const searchTerm = searchRaw.toLowerCase().trim();
+            if (cellStr.includes(searchTerm)) return true;
+            if (searchTerm.endsWith('s') && searchTerm.length > 3) {
+                const singular = searchTerm.slice(0, -1);
+                if (singular.length >= 3 && cellStr.includes(singular)) return true;
+            }
+            return false;
+        }
+
+        function applyFiltersAndSort() {
+            if (!rawDataset.length) {
+                filteredSortedData = [];
+                if (filteredCountSpan) filteredCountSpan.textContent = '0';
+                return [];
+            }
+
+            let result = [...rawDataset];
+
+            for (const col of currentHeaders) {
+                const searchText = columnSearchTexts[col] || '';
+                const selectedSet = columnSelectedValues[col];
+                if (searchText === '' && (!selectedSet || selectedSet.size === 0)) continue;
+
+                result = result.filter(row => {
+                    const cellVal = row[col] !== undefined && row[col] !== null ? String(row[col]) : '';
+                    if (searchText !== '' && !isHintMatch(cellVal, searchText)) return false;
+                    if (selectedSet && selectedSet.size > 0) return selectedSet.has(cellVal);
+                    return true;
+                });
+            }
+
+            if (sortConfig.column && currentHeaders.includes(sortConfig.column)) {
+                const col = sortConfig.column;
+                const dir = sortConfig.direction;
+                result.sort((a, b) => {
+                    const valA = a[col] !== undefined ? String(a[col]) : '';
+                    const valB = b[col] !== undefined ? String(b[col]) : '';
+                    const numA = parseFloat(valA);
+                    const numB = parseFloat(valB);
+                    const isNumA = !isNaN(numA) && isFinite(valA) && valA.trim() !== '';
+                    const isNumB = !isNaN(numB) && isFinite(valB) && valB.trim() !== '';
+                    if (isNumA && isNumB) {
+                        return dir === 'asc' ? numA - numB : numB - numA;
+                    }
+                    const comp = valA.localeCompare(valB);
+                    return dir === 'asc' ? comp : -comp;
+                });
+            }
+
+            filteredSortedData = result;
+            if (filteredCountSpan) {
+                filteredCountSpan.textContent = filteredSortedData.length.toLocaleString();
+            }
+            return filteredSortedData;
+        }
+
+        function persistAndRefreshUI() {
+            applyFiltersAndSort();
+            currentPage = 1;
+            renderTable();
+            saveAllPreferences();
+            updateFilterChipsDisplay();
+            updateFilterContainerHighlight();
+            if (currentHeaders.length) renderColumnManager();
+        }
+
+        // ================================================================
+        //  12. RENDER TABLE (VIEW-ONLY)
+        // ================================================================
+        function renderTable() {
+            if (!filteredSortedData.length) {
+                tableBody.innerHTML =
+                    `<tr><td colspan="100" class="empty-placeholder">📭 No matching records. Adjust column filters.</td></tr>`;
+                document.getElementById('pagination').style.display = 'none';
+                return;
+            }
+
+            const start = (currentPage - 1) * ROWS_PER_PAGE;
+            const end = Math.min(start + ROWS_PER_PAGE, filteredSortedData.length);
+            const pageRows = filteredSortedData.slice(start, end);
+
+            const visibleHeaders = currentHeaders.filter(col => columnVisibility[col] !== false);
+            if (visibleHeaders.length === 0) {
+                tableBody.innerHTML = `<tr><td class="empty-placeholder">⚠️ All columns hidden. Use the column manager.</td></tr>`;
+                document.getElementById('pagination').style.display = 'none';
+                return;
+            }
+
+            // Header
+            let theadHtml = '<tr>';
+            for (const h of visibleHeaders) {
+                const indicator = sortConfig.column === h ?
+                    (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') :
+                    ' ↕️';
+                theadHtml +=
+                    `<th data-sort-col="${escapeHtml(h)}"><span class="th-sort">${escapeHtml(h)}<span class="sort-arrow">${indicator}</span></span></th>`;
+            }
+            theadHtml += '</tr>';
+            tableHeader.innerHTML = theadHtml;
+
+            document.querySelectorAll('#tableHeader th').forEach(th => {
+                th.addEventListener('click', () => {
+                    const col = th.getAttribute('data-sort-col');
+                    if (sortConfig.column === col) {
+                        sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortConfig.column = col;
+                        sortConfig.direction = 'asc';
+                    }
+                    persistAndRefreshUI();
+                });
+            });
+
+            // Body
+            let tbodyHtml = '';
+            for (const row of pageRows) {
+                tbodyHtml += '<tr>';
+                for (const h of visibleHeaders) {
+                    const val = row[h] !== undefined && row[h] !== null ? String(row[h]) : '';
+                    const display = val.length > 80 ? val.slice(0, 77) + '...' : val;
+                    tbodyHtml += `<td title="${escapeHtml(val)}">${escapeHtml(display)}</td>`;
+                }
+                tbodyHtml += '</tr>';
+            }
+            tableBody.innerHTML = tbodyHtml;
+
+            // Pagination
+            const totalPages = Math.ceil(filteredSortedData.length / ROWS_PER_PAGE);
+            const paginationDiv = document.getElementById('pagination');
+            if (totalPages <= 1) {
+                paginationDiv.style.display = 'none';
+            } else {
+                paginationDiv.style.display = 'flex';
+                pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+                prevPageBtn.disabled = (currentPage === 1);
+                nextPageBtn.disabled = (currentPage === totalPages);
+            }
+        }
+
+        // ================================================================
+        //  13. FILTER CARDS
+        // ================================================================
+        function rebuildFilterCards() {
+            if (!currentHeaders.length) return;
+            dynamicFilterCards.innerHTML = '';
+
+            for (const col of currentHeaders) {
+                const currentText = columnSearchTexts[col] || '';
+                const uniqueSet = new Set();
+                for (const row of rawDataset) {
+                    const v = row[col] !== undefined && row[col] !== null ? String(row[col]) : '(blank)';
+                    uniqueSet.add(v);
+                }
+                const selectedCount = columnSelectedValues[col]?.size || 0;
+
+                const card = document.createElement('div');
+                card.className = 'filter-card';
+                card.setAttribute('data-col', col);
+                card.innerHTML = `
+                    <label title="${escapeHtml(col)}">${escapeHtml(col.length > 20 ? col.slice(0, 18) + '..' : col)}</label>
+                    <input type="text" class="filter-text-input" data-col="${escapeHtml(col)}" value="${escapeHtml(currentText)}" />
+                    <div class="filter-stats">
+                        <span>📋 ${uniqueSet.size} unique</span>
+                        <span class="multi-select-trigger" data-col="${escapeHtml(col)}" style="cursor:pointer;color:#2c6e9e;font-weight:500;">
+                            🎯 ${selectedCount > 0 ? `${selectedCount} selected` : 'Select values'}
+                        </span>
+                    </div>
+                `;
+                dynamicFilterCards.appendChild(card);
+            }
+
+            attachFilterEvents();
+            updateFilterContainerHighlight();
+        }
+
+        function attachFilterEvents() {
+            document.querySelectorAll('.filter-text-input').forEach(inp => {
+                inp.removeEventListener('input', handleFilterInput);
+                inp.addEventListener('input', handleFilterInput);
+            });
+            document.querySelectorAll('.multi-select-trigger').forEach(tr => {
+                tr.removeEventListener('click', handleMultiSelect);
+                tr.addEventListener('click', handleMultiSelect);
+            });
+        }
+
+        function handleFilterInput(e) {
+            const col = e.target.getAttribute('data-col');
+            columnSearchTexts[col] = e.target.value;
+
+            clearTimeout(filterInputTimer);
+            filterInputTimer = setTimeout(() => {
+                applyFiltersAndSort();
+                currentPage = 1;
+                renderTable();
+                saveAllPreferences();
+                updateFilterChipsDisplay();
+                updateFilterContainerHighlight();
+            }, 250);
+        }
+
+        // ----- Multi-select (desktop dropdown + mobile modal) -----
+        function handleMultiSelect(e) {
+            const col = e.target.getAttribute('data-col');
+            const uniqueMap = new Map();
+            for (const row of rawDataset) {
+                const val = row[col] !== undefined && row[col] !== null ? String(row[col]) : '(blank)';
+                uniqueMap.set(val, true);
+            }
+            const sorted = Array.from(uniqueMap.keys()).sort();
+            const curSet = columnSelectedValues[col] || new Set();
+            const isMobile = window.innerWidth <= 768;
+
+            if (isMobile) {
+                openMobileFilterModal(col, sorted, curSet);
+                return;
+            }
+            openDesktopDropdown(e, col, sorted, curSet);
+        }
+
+        function openDesktopDropdown(e, col, sorted, curSet) {
+            if (activeDropdown) {
+                activeDropdown.remove();
+                activeDropdown = null;
+            }
+
+            const dropdown = document.createElement('div');
+            dropdown.style.cssText =
+                'position:fixed;background:white;border:1px solid #ccc;border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,0.2);min-width:240px;z-index:1000;padding:12px;';
+
+            dropdown.innerHTML = `
+                <div style="font-weight:600;margin-bottom:8px;">Filter ${escapeHtml(col)}</div>
+                <input type="text" id="dropdownSearch" placeholder="Search values..." style="width:100%;padding:8px;border-radius:30px;border:1px solid #ccc;margin-bottom:8px;" />
+                <div id="dropdownList" style="max-height:200px;overflow-y:auto;border-top:1px solid #eee;margin-top:6px;"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                    <button id="dropdownOk" style="padding:4px 14px;">OK</button>
+                    <button id="dropdownClear" style="padding:4px 14px;background:#6c7a89;">Clear</button>
+                </div>
+            `;
+            document.body.appendChild(dropdown);
+
+            const rect = e.target.getBoundingClientRect();
+            let left = rect.left - 60;
+            let top = rect.bottom + 4;
+            const dRect = dropdown.getBoundingClientRect();
+            if (left + dRect.width > window.innerWidth) left = window.innerWidth - dRect.width - 10;
+            if (top + dRect.height > window.innerHeight) top = window.innerHeight - dRect.height - 10;
+            if (left < 10) left = 10;
+            if (top < 10) top = 10;
+            dropdown.style.left = left + 'px';
+            dropdown.style.top = top + 'px';
+
+            const listDiv = dropdown.querySelector('#dropdownList');
+            const searchInput = dropdown.querySelector('#dropdownSearch');
+
+            function renderList(filter = '') {
+                const filtered = sorted.filter(v => filter === '' || v.toLowerCase().includes(filter.toLowerCase()));
+                listDiv.innerHTML = '';
+                for (const val of filtered.slice(0, 500)) {
+                    const isChecked = curSet.has(val);
+                    const item = document.createElement('div');
+                    item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 0;';
+                    item.innerHTML =
+                        `<input type="checkbox" value="${escapeHtml(val)}" ${isChecked ? 'checked' : ''} /> <span style="font-size:12px;">${escapeHtml(val.length > 50 ? val.slice(0, 47) + '...' : val)}</span>`;
+                    listDiv.appendChild(item);
+                }
+            }
+            renderList();
+
+            searchInput.addEventListener('input', (e2) => renderList(e2.target.value));
+
+            dropdown.querySelector('#dropdownOk').addEventListener('click', () => {
+                const newSet = new Set();
+                dropdown.querySelectorAll('#dropdownList input:checked').forEach(cb => newSet.add(cb.value));
+                if (newSet.size) columnSelectedValues[col] = newSet;
+                else delete columnSelectedValues[col];
+                persistAndRefreshUI();
+                rebuildFilterCards();
+                dropdown.remove();
+                activeDropdown = null;
+            });
+
+            dropdown.querySelector('#dropdownClear').addEventListener('click', () => {
+                delete columnSelectedValues[col];
+                persistAndRefreshUI();
+                rebuildFilterCards();
+                dropdown.remove();
+                activeDropdown = null;
+            });
+
+            activeDropdown = dropdown;
+        }
+
+        function openMobileFilterModal(col, sorted, curSet) {
+            if (activeDropdown) {
+                activeDropdown.remove();
+                activeDropdown = null;
+            }
+
+            const overlay = document.createElement('div');
+            overlay.className = 'mobile-filter-modal-overlay';
+
+            const card = document.createElement('div');
+            card.className = 'mobile-filter-modal-card';
+            card.innerHTML = `
+                <div class="mobile-filter-header">Filter: ${escapeHtml(col)}</div>
+                <div class="mobile-filter-search"><input type="text" id="mobileFilterSearch" placeholder="Search values..." /></div>
+                <div class="mobile-filter-list" id="mobileFilterList"></div>
+                <div class="mobile-filter-buttons">
+                    <button id="mobileFilterOkBtn" style="background:#2c6e9e;">Apply</button>
+                    <button id="mobileFilterClearBtn" style="background:#6c7a89;">Clear</button>
+                </div>
+            `;
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+
+            const listContainer = card.querySelector('#mobileFilterList');
+            const searchInput = card.querySelector('#mobileFilterSearch');
+            const currentChecked = new Set(curSet);
+
+            function renderList(filter = '') {
+                const filtered = sorted.filter(v => filter === '' || v.toLowerCase().includes(filter.toLowerCase()));
+                listContainer.innerHTML = '';
+                for (const val of filtered.slice(0, 500)) {
+                    const isChecked = currentChecked.has(val);
+                    const item = document.createElement('div');
+                    item.className = 'mobile-filter-item';
+                    item.innerHTML =
+                        `<input type="checkbox" value="${escapeHtml(val)}" ${isChecked ? 'checked' : ''} /> <span>${escapeHtml(val.length > 60 ? val.slice(0, 57) + '...' : val)}</span>`;
+                    listContainer.appendChild(item);
+                }
+            }
+            renderList();
+
+            searchInput.addEventListener('input', (e2) => renderList(e2.target.value));
+
+            const closeModal = () => {
+                overlay.remove();
+                activeDropdown = null;
+            };
+
+            card.querySelector('#mobileFilterOkBtn').addEventListener('click', () => {
+                const newSet = new Set();
+                listContainer.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => newSet.add(cb.value));
+                if (newSet.size) columnSelectedValues[col] = newSet;
+                else delete columnSelectedValues[col];
+                persistAndRefreshUI();
+                rebuildFilterCards();
+                closeModal();
+            });
+
+            card.querySelector('#mobileFilterClearBtn').addEventListener('click', () => {
+                delete columnSelectedValues[col];
+                persistAndRefreshUI();
+                rebuildFilterCards();
+                closeModal();
+            });
+
+            overlay.addEventListener('click', (e2) => {
+                if (e2.target === overlay) closeModal();
+            });
+
+            activeDropdown = overlay;
+        }
+
+        // ================================================================
+        //  14. FILTER CHIPS & HIGHLIGHT
+        // ================================================================
+        function updateFilterChipsDisplay() {
+            const active = [];
+            for (const col of currentHeaders) {
+                const txt = columnSearchTexts[col] || '';
+                const sel = columnSelectedValues[col];
+                if (txt || (sel && sel.size)) {
+                    const desc = [];
+                    if (txt) desc.push(`hint:"${txt}"`);
+                    if (sel && sel.size) desc.push(`${sel.size} values`);
+                    active.push({ col, label: desc.join(' + ') });
+                }
+            }
+
+            if (active.length === 0) {
+                activeFilterChips.innerHTML = '<span style="font-size:12px;">✨ No active filters</span>';
+            } else {
+                let html = '<span style="font-size:12px;">🔍 Active filters:</span>';
+                for (const f of active) {
+                    html += `
+                        <div class="filter-chip">
+                            ${escapeHtml(f.col)}: ${escapeHtml(f.label)}
+                            <button class="clear-chip" data-col="${escapeHtml(f.col)}">✖</button>
+                        </div>
+                    `;
+                }
+                activeFilterChips.innerHTML = html;
+
+                document.querySelectorAll('.clear-chip').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const col = btn.getAttribute('data-col');
+                        delete columnSearchTexts[col];
+                        delete columnSelectedValues[col];
+                        persistAndRefreshUI();
+                        rebuildFilterCards();
+                    });
+                });
+            }
+
+            updateFilterContainerHighlight();
+        }
+
+        function updateFilterContainerHighlight() {
+            if (mainFilterContainer) {
+                const anyActive = Object.keys(columnSearchTexts).some(k => columnSearchTexts[k]?.trim()) ||
+                    Object.keys(columnSelectedValues).some(k => columnSelectedValues[k]?.size);
+                if (anyActive) mainFilterContainer.classList.add('has-active-filters');
+                else mainFilterContainer.classList.remove('has-active-filters');
+            }
+
+            document.querySelectorAll('.filter-card').forEach(card => {
+                const col = card.getAttribute('data-col');
+                if (col && (columnSearchTexts[col]?.trim() || columnSelectedValues[col]?.size)) {
+                    card.classList.add('has-column-filter');
+                } else {
+                    card.classList.remove('has-column-filter');
+                }
+            });
+        }
+
+        // ================================================================
+        //  15. COLUMN MANAGER
+        // ================================================================
+        function renderColumnManager() {
+            if (!currentHeaders.length) return;
+            columnToggleGroup.innerHTML = '';
+
+            for (const col of currentHeaders) {
+                const isVisible = columnVisibility[col] !== false;
+                const btn = document.createElement('button');
+                btn.className = `column-toggle-btn ${isVisible ? 'active-col' : 'hidden-col'}`;
+                btn.textContent = col.length > 20 ? col.slice(0, 18) + '..' : col;
+                btn.title = col;
+                btn.addEventListener('click', () => {
+                    columnVisibility[col] = !isVisible;
+                    persistAndRefreshUI();
+                });
+                columnToggleGroup.appendChild(btn);
+            }
+        }
+
+        function resetColumnVisibility() {
+            currentHeaders.forEach(col => columnVisibility[col] = true);
+            persistAndRefreshUI();
+            showStatus('All columns visible', 'success');
+        }
+
+        // ================================================================
+        //  16. EVENT BINDINGS
+        // ================================================================
+        const fileInfoText = f => f ? `📄 ${f.name} · ${(f.size / 1024).toFixed(1)} KB` : '';
+        mainFileInput.addEventListener('change', e => { mainFileInfo.textContent = fileInfoText(e.target.files[0]); });
+        branchFileInput.addEventListener('change', e => { branchFileInfo.textContent = fileInfoText(e.target.files[0]); });
+
+        // Upload two files -> merge -> save to database -> load from database
+        uploadBtn.addEventListener('click', async () => {
+            if (!isAdminLoggedIn) {
+                showStatus('Admin access required', 'error');
+                return;
+            }
+            const mainFile = mainFileInput.files[0];
+            const branchFile = branchFileInput.files[0];
+            if (!mainFile) {
+                showStatus('Please select the Main Product file', 'error');
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            progressFill.style.width = '0%';
+            progressFill.textContent = '0%';
+
+            try {
+                // STEP 1 — read the files
+                batchInfo.textContent = '1/4 Reading the uploaded files...';
+                const main = await parseFileToObjects(mainFile);
+                if (!main.data.length) throw new Error('Main file has no data rows.');
+                let branch = null;
+                if (branchFile) {
+                    branch = await parseFileToObjects(branchFile);
+                    if (!branch.data.length) throw new Error('Branch file has no data rows.');
+                }
+
+                // STEP 2 — merge by SKU
+                batchInfo.textContent = '2/4 Merging the two files...';
+                let merged;
+                if (branch) {
+                    merged = mergeDatasets(main, branch);
+                } else {
+                    merged = {
+                        headers: main.headers.slice(), data: main.data,
+                        stats: { totalMain: main.data.length, totalBranch: 0, matched: 0, branchCols: [], single: true }
+                    };
+                }
+                const fileName = branchFile ? `${mainFile.name} + ${branchFile.name}` : mainFile.name;
+                const mergeMsg = merged.stats.single
+                    ? `${merged.data.length.toLocaleString()} rows · ${merged.headers.length} columns`
+                    : `${merged.data.length.toLocaleString()} rows · ${merged.headers.length} columns · matched ${merged.stats.matched}/${merged.stats.totalMain} SKUs`;
+
+                // STEP 3 — save to the database
+                batchInfo.textContent = '3/4 Saving to the database...';
+                const stats = await saveMergedToDatabase(merged, fileName, (prog) => {
+                    const pct = Math.round(prog.percentage);
+                    progressFill.style.width = pct + '%';
+                    progressFill.textContent = pct + '%';
+                    batchInfo.textContent =
+                        `3/4 Saving... batch ${prog.completedBatches}/${prog.totalBatches} | ${(prog.speed || 0).toLocaleString()} rows/sec | ${pct}%`;
+                    uploadSpeedElem.textContent = (prog.speed || 0).toLocaleString();
+                    batchProgressElem.textContent = `${prog.completedBatches}/${prog.totalBatches}`;
+                });
+                if (stats) {
+                    uploadSpeedElem.textContent = stats.avgSpeed.toLocaleString();
+                    batchProgressElem.textContent = `${stats.totalBatches}/${stats.totalBatches}`;
+                }
+
+                // STEP 4 — load the saved data back from the database
+                batchInfo.textContent = '4/4 Loading the saved data from the database...';
+                const ok = await loadLatestData();
+                if (!ok) throw new Error('Saved, but loading it back failed. Click "Refresh from Firebase".');
+                if (rawDataset.length !== merged.data.length) {
+                    throw new Error(`Saved, but the database returned ${rawDataset.length.toLocaleString()} rows instead of ${merged.data.length.toLocaleString()}. Please try again.`);
+                }
+
+                showStatus(`✅ Saved to /${DATA_ROOT}/${CURRENT_KEY} and loaded (${mergeMsg}). It stays after a page refresh.`, 'success', true);
+            } catch (err) {
+                console.error(err);
+                showStatus('❌ ' + err.message, 'error', true);
+                progressFill.style.width = '0%';
+                progressFill.textContent = '0%';
+            } finally {
+                uploadBtn.disabled = false;
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    progressFill.textContent = '0%';
+                    batchInfo.textContent = '';
+                }, 3000);
+            }
+        });
+
+        // Delete the saved dataset (only /arrangedata/current)
+        deleteBtn.addEventListener('click', async () => {
+            if (!isAdminLoggedIn) {
+                showStatus('Admin access required', 'error');
+                return;
+            }
+            if (!confirm(`Delete the saved dataset (/${DATA_ROOT}/${CURRENT_KEY}) for ALL users?\n\nThis cannot be undone.`)) return;
+
+            try {
+                await withSpinner(database.ref(DATA_ROOT + '/' + CURRENT_KEY).remove(), 'Deleting...');
+            } catch (err) {
+                showStatus('❌ ' + (/permission/i.test(err.message) ? 'Firebase denied the delete. Update your Realtime Database rules.' : err.message), 'error');
+                return;
+            }
+
+            currentMetadata = null;
+            clearEmptyView('🗑️ Saved dataset deleted. Upload the two files again (Admin only).');
+            showStatus('Saved dataset removed', 'success');
+
+            localStorage.removeItem(STORAGE_KEYS.FILTER_TEXTS);
+            localStorage.removeItem(STORAGE_KEYS.FILTER_SELECTED);
+            localStorage.removeItem(STORAGE_KEYS.SORT_COL);
+            localStorage.removeItem(STORAGE_KEYS.SORT_DIR);
+            localStorage.removeItem(STORAGE_KEYS.COLUMN_VISIBILITY);
+        });
+
+        // Load / Refresh
+        loadBtn.addEventListener('click', () => loadLatestData());
+
+        // Apply / Reset filters
+        applyAllFiltersBtn?.addEventListener('click', () => persistAndRefreshUI());
+        resetAllFiltersBtn?.addEventListener('click', () => {
+            columnSearchTexts = {};
+            columnSelectedValues = {};
+            sortConfig = { column: null, direction: 'asc' };
+            persistAndRefreshUI();
+            rebuildFilterCards();
+            showStatus('All filters reset', 'info');
+        });
+
+        // Reset column visibility
+        resetColumnVisibilityBtn?.addEventListener('click', resetColumnVisibility);
+
+        // Pagination
+        prevPageBtn?.addEventListener('click', () => {
+            if (currentPage > 1) { currentPage--; renderTable(); }
+        });
+        nextPageBtn?.addEventListener('click', () => {
+            const total = Math.ceil(filteredSortedData.length / ROWS_PER_PAGE);
+            if (currentPage < total) { currentPage++; renderTable(); }
+        });
+
+        // ================================================================
+        //  17. INITIALIZATION
+        // ================================================================
+        function initializeDashboard() {
+            checkExistingAdminSession();
+            if (database) loadLatestData();
+            else showStatus('Firebase issue', 'error');
+        }
+
+        (function initOnLoad() {
+            const existingSession = checkExistingUserSession();
+
+            if (existingSession && database) {
+                userLoginOverlay.style.display = 'none';
+                dashboardContainer.style.display = 'block';
+                currentLoggedInUser = existingSession;
+                renderUserWelcome(existingSession);
+                initializeDashboard();
+            } else {
+                userLoginOverlay.style.display = 'flex';
+                dashboardContainer.style.display = 'none';
+            }
+
+            userLoginBtn.addEventListener('click', handleUserLogin);
+            userLoginUsername.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleUserLogin();
+            });
+            userLoginPassword.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleUserLogin();
+            });
+        })();
+    </script>
+
+</body>
+</html>
